@@ -34,6 +34,7 @@ def gen_U32(file_, u32):
     gen_Byte(file_,byte)
 
 def parse_Bytes32(bytes_,idx):
+  if verbose: print("parse_Bytes32",bytes_,idx)
   b = bytearray([])
   for i in range(32):
     idx, byte = parse_Byte(bytes_, idx)
@@ -324,13 +325,14 @@ def gen_Bytecode(file_, bytecode):
     gen_Byte(file_, bytecode[i])
 
 def parse_Storage_Leaf_Node(bytes_,idx,depth):
+  if verbose: print("parse_Storage_Leaf_Node",bytes_,idx,depth)
   idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
   idx, key = parse_Bytes32(bytes_,idx)
   idx, value = parse_Bytes32(bytes_,idx)
   return idx, ("storage_leaf", pathnibbles, key, value)
 
 def gen_Storage_Leaf_Node(file_, leaf):
-  gen_Nibbles(file_,leaf[1])
+  gen_Nibbles(file_,leaf[1][1])
   gen_Bytes32(file_,leaf[2])
   gen_Bytes32(file_,leaf[3])
 

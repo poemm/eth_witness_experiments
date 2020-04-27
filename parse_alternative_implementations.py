@@ -6,9 +6,9 @@
 
 def parse_Block_Witness(bytes_,idx):
   # PLEASE COMMENT ALL OF THESE BUT ONE
-  return parse_Block_Witness_fewer_recursive_funcs(bytes_,idx)
+  #return parse_Block_Witness_fewer_recursive_funcs(bytes_,idx)
   #return parse_Block_Witness_single_recursive_func(bytes_,idx)
-  #return parse_Block_Witness_stack_based(bytes_,idx)
+  return parse_Block_Witness_stack_based(bytes_,idx)
 
 
 
@@ -251,17 +251,16 @@ def parse_Block_Witness_stack_based(bytes_,idx):
     stack.append(["parent_of_root",[]])
     first_iter=1
     while len(stack)>1 or first_iter:
+      if verbose: print("while 1  nibbledepth",nibbledepth)
       first_iter=0
 
       # parse node type byte
       idx, node_type = parse_Bytes(bytes_,idx,1)
-      #print("while 1  nibbledepth",nibbledepth, "  node_type",node_type)
       assert node_type in {0x00,0x01,0x02,0x03}
       # create appropriate node type
       if node_type == 0x00:  # branch node
-        if verbose: print("parse_Branch_Node", idx, nibbledepth, storage_flag)
+        if verbose: print("branch 1", idx, nibbledepth, storage_flag)
         assert nibbledepth<65
-        #print("branch 1")
         idx,bitmask = parse_Bytes(bytes_,idx,2)
         bitmaskstr = bin(bitmask[0])[2:].zfill(8) + bin(bitmask[1])[2:].zfill(8)
         assert bitmaskstr.count("1")>1
@@ -274,7 +273,7 @@ def parse_Block_Witness_stack_based(bytes_,idx):
         stack.append(["branch", bitmaskstr, children])
         nibbledepth+=1
       elif node_type == 0x01:  # extension node
-        if verbose: print("parse_Extension_Node", bytes_,idx, nibbledepth, storage_flag)
+        if verbose: print("extension 1", idx, nibbledepth, storage_flag)
         assert nibbledepth<63
         idx, pathnibbleslen = parse_Bytes(bytes_,idx,1)
         assert pathnibbleslen>0
@@ -283,8 +282,7 @@ def parse_Block_Witness_stack_based(bytes_,idx):
         stack.append(["extension", (pathnibbleslen, pathnibbles), []])
         nibbledepth+=pathnibbleslen
       elif node_type == 0x02:  # leaf node
-        #print("leaf 1")
-        if verbose: print("parse_Leaf_Node", bytes_, idx, nibbledepth, storage_flag)
+        if verbose: print("leaf 1", idx, nibbledepth, storage_flag)
         assert nibbledepth<65
         if storage_flag==0:
           idx, accounttype = parse_Bytes(bytes_, idx, 1)
@@ -299,7 +297,7 @@ def parse_Block_Witness_stack_based(bytes_,idx):
             bytecodelen = int.from_bytes(bytecodelen, byteorder="big")
             idx, bytecode = parse_Bytes(bytes_,idx,bytecodelen)
             # must parse storage tree
-            storage_tree_flag = 1
+            storage_flag = 1
             stack.append(["leaf", (64-nibbledepth, pathnibbles), address, balance, nonce, bytecode, []])
             nibbledepth = 0
             stack.append(["parent_of_root",[]])
@@ -310,9 +308,9 @@ def parse_Block_Witness_stack_based(bytes_,idx):
           idx, key = parse_Bytes(bytes_,idx,32)
           idx, value = parse_Bytes(bytes_,idx,32)
           nibbledepth = 64
-          stack.append(["leaf", (pathnibbleslen,pathnibbles), key, value])
+          stack.append(["leaf", (64-nibbledepth,pathnibbles), key, value])
       elif node_type == 0x03:  # hash node
-        #print("hash 1")
+        if verbose: print("hash 1")
         assert nibbledepth<65
         idx, hash_ = parse_Bytes(bytes_, idx, 32)
         #nibbledepth+=1
@@ -324,12 +322,12 @@ def parse_Block_Witness_stack_based(bytes_,idx):
       # pop stack items if current_node is
       #   hash, branch with 16 children, extension with child, account leaf with storage figured out, storage leaf, or parent of root
       while len(stack)>1:
-        #print("while 2")
+        if verbose: print("while 2")
         if stack[-1][0] == "hash":
-          #print("hash 2")
+          if verbose: print("hash 2")
           stack[-2][-1].append(stack.pop())
         elif stack[-1][0] == "branch":
-          #print("branch node 2")
+          if verbose: print("branch node 2")
           # if have 16 children, pop, otherwise break
           bitmaskstr = stack[-1][1]
           for bit in bitmaskstr[len(stack[-1][-1]):]:
@@ -348,13 +346,13 @@ def parse_Block_Witness_stack_based(bytes_,idx):
           else:
             break
         elif stack[-1][0] == "leaf":
-          #print("leaf 2")
+          if verbose: print("leaf 2")
           if len(stack[-1])>2:
-            storage_tree_flag = 0
+            storage_flag = 0
           if stack[-1][-1] != []:
             stack[-2][-1].append(stack.pop())
         elif stack[-1][0] == "parent_of_root":
-          #print("parent_of_root 2")
+          if verbose: print("parent_of_root 2")
           if stack[-1][-1]:
             parent_of_root = stack.pop()
             stack[-1][-1].append(parent_of_root[-1])
