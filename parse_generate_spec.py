@@ -287,28 +287,55 @@ def gen_Leaf_Node(file_, leaf):
 def parse_Account_Node(bytes_,idx,depth):
   idx, accounttype = parse_Byte(bytes_, idx)
   assert accounttype in {0x00,0x01}
-  idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
-  idx, address = parse_Address(bytes_,idx)
-  idx, nonce = parse_Bytes32(bytes_,idx)
-  idx, balance = parse_Bytes32(bytes_,idx)
-  if accounttype == 0x01:
+  if accounttype == 0x00:
+    idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
+    idx, address = parse_Address(bytes_,idx)
+    idx, nonce = parse_Bytes32(bytes_,idx)
+    idx, balance = parse_Bytes32(bytes_,idx)
+    return idx, ("account_leaf", pathnibbles, address, balance, nonce)
+  elif accounttype == 0x01:
+    idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
+    idx, address = parse_Address(bytes_,idx)
+    idx, nonce = parse_Bytes32(bytes_,idx)
+    idx, balance = parse_Bytes32(bytes_,idx)
     idx, bytecode = parse_Bytecode(bytes_,idx)
     idx, storage = parse_Tree_Node(bytes_, idx, 0, 1)
     return idx, ("account_leaf", pathnibbles, address, balance, nonce, bytecode, storage)
-  return idx, ("account_leaf", pathnibbles, address, balance, nonce)
+  elif accounttype == 0x01:
+    idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
+    idx, address = parse_Address(bytes_,idx)
+    idx, nonce = parse_Bytes32(bytes_,idx)
+    idx, balance = parse_Bytes32(bytes_,idx)
+    idx, codehash = parse_Bytes32(bytes_,idx)
+    idx, codesize = parse_U32(bytes_,idx)
+    idx, bytecode = parse_Bytecode(bytes_,idx)
+    idx, storage = parse_Tree_Node(bytes_, idx, 0, 1)
+    return idx, ("account_leaf", pathnibbles, address, balance, nonce, codehash, codesize, storage)
 
 def gen_Account_Node(file_, leaf):
   if len(leaf)==5:
     gen_Byte(file_, 0x00)
+    gen_Nibbles(file_,leaf[1][1])
+    gen_Address(file_,leaf[2])
+    gen_Bytes32(file_,leaf[3])
+    gen_Bytes32(file_,leaf[4])
   elif len(leaf)==7:
     gen_Byte(file_, 0x01)
-  gen_Nibbles(file_,leaf[1][1])
-  gen_Address(file_,leaf[2])
-  gen_Bytes32(file_,leaf[3])
-  gen_Bytes32(file_,leaf[4])
-  if len(leaf)>5:
+    gen_Nibbles(file_,leaf[1][1])
+    gen_Address(file_,leaf[2])
+    gen_Bytes32(file_,leaf[3])
+    gen_Bytes32(file_,leaf[4])
     gen_Bytecode(file_,leaf[5])
     gen_Tree_Node(file_,leaf[6])
+  elif len(leaf)==8:
+    gen_Byte(file_, 0x02)
+    gen_Nibbles(file_,leaf[1][1])
+    gen_Address(file_,leaf[2])
+    gen_Bytes32(file_,leaf[3])
+    gen_Bytes32(file_,leaf[4])
+    gen_Bytes32(file_,leaf[5])
+    gen_U32(file_,leaf[6])
+    gen_Tree_Node(file_,leaf[7])
 
 def parse_Bytecode(bytes_, idx):
   idx, len_ = parse_U32(bytes_, idx)
