@@ -7,8 +7,8 @@ verbose = 0
 
 # PLEASE COMMENT IN ONE `gen_Block_Witness` AND ONE `parse_Block_Witness` BELOW
 from parse_generate_spec import gen_Block_Witness
-#from parse_generate_spec import parse_Block_Witness
-from parse_alternative_implementations import parse_Block_Witness
+from parse_generate_spec import parse_Block_Witness
+#from parse_alternative_implementations import parse_Block_Witness
 
 
 
@@ -35,6 +35,8 @@ def test(testid, test_text):
   #print(output.hex())
   #print(output.hex())
 
+  block_witness = parse_Block_Witness(output, 0)
+  """
   try:
     block_witness = parse_Block_Witness(output, 0)
     #print("pass")
@@ -43,6 +45,7 @@ def test(testid, test_text):
   except AssertionError:
     print("There was an AssertionError")
     #print("output",output)
+  """
 
   #print(block_witness)
 
@@ -296,6 +299,7 @@ def run_tests():
   test(testid, test_text)
 
 
+  """
   testid = "Parsing error: simple externally owned account"
   test_text=\
 ( "Ethereum 1x witness",
@@ -310,6 +314,7 @@ def run_tests():
   ),
 )
   test(testid, test_text)
+  """
 
 
   testid = "simple contract account"
