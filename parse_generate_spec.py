@@ -19,19 +19,23 @@ def gen_Byte(file_, byte):
   #file_.write(byte)
   file_.append(byte)
 
-def parse_U32(bytes_, idx):
-  b = bytearray([])
-  for i in range(4):
-    idx, byte = parse_Byte(bytes_, idx)
-    b.append(byte)
-  u32 = int.from_bytes(b, byteorder="big")
-  return idx, u32
+def parse_Integer(bytes_, idx, n):
+  idx, low = parse_Byte(bytes_, idx)
+  assert low<2**n
+  if low>>7:
+    idx,high = parse_Integer(bytes_, idx, n-7)
+    assert high>0
+  else:
+    high = 0
+  return idx, (high<<7) + low - 128*(low>>7)
 
-def gen_U32(file_, u32):
-  b = u32.to_bytes(4, byteorder="big")
-  #b = u32.to_bytes((u32.bit_length() + 7) // 8, byteorder="big")
-  for byte in b:
-    gen_Byte(file_,byte)
+def gen_Integer(file_,integer):
+  integer_ = int(integer)
+  if integer_<128:
+    gen_Byte(file_,integer_)
+  else:
+    gen_Byte(file_,128+integer_%128)
+    gen_Integer(file_,integer_>>7)
 
 def parse_Bytes32(bytes_,idx):
   if verbose: print("parse_Bytes32",bytes_,idx)
@@ -289,13 +293,13 @@ def parse_Account_Node(bytes_,idx,depth):
   assert accounttype in {0x00,0x01}
   if accounttype == 0x00:
     idx, address = parse_Address(bytes_,idx)
-    idx, nonce = parse_Bytes32(bytes_,idx)
-    idx, balance = parse_Bytes32(bytes_,idx)
+    idx, nonce = parse_Integer(bytes_,idx,256)
+    idx, balance = parse_Integer(bytes_,idx,256)
     return idx, ("leaf", address, balance, nonce)
   elif accounttype == 0x01:
     idx, address = parse_Address(bytes_,idx)
-    idx, nonce = parse_Bytes32(bytes_,idx)
-    idx, balance = parse_Bytes32(bytes_,idx)
+    idx, nonce = parse_Integer(bytes_,idx,256)
+    idx, balance = parse_Integer(bytes_,idx,256)
     idx, bytecode = parse_Bytecode(bytes_,idx)
     idx, storage = parse_Tree_Node(bytes_, idx, 0, 1)
     return idx, ("leaf", address, balance, nonce, bytecode, storage)
@@ -305,13 +309,13 @@ def gen_Account_Node(file_, leaf):
   if len(leaf)==4:
     gen_Byte(file_, 0x00)
     gen_Address(file_,leaf[1])
-    gen_Bytes32(file_,leaf[2])
-    gen_Bytes32(file_,leaf[3])
+    gen_Integer(file_,leaf[2])
+    gen_Integer(file_,leaf[3])
   elif len(leaf)==6:
     gen_Byte(file_, 0x01)
     gen_Address(file_,leaf[1])
-    gen_Bytes32(file_,leaf[2])
-    gen_Bytes32(file_,leaf[3])
+    gen_Integer(file_,leaf[2])
+    gen_Integer(file_,leaf[3])
     gen_Bytecode(file_,leaf[4])
     gen_Tree_Node(file_,leaf[5])
 
@@ -320,14 +324,14 @@ def parse_Bytecode(bytes_, idx):
   idx, codetype = parse_Byte(bytes_, idx)
   assert codetype in {0x00,0x01}
   if codetype == 0x00:
-    idx, codelen = parse_U32(bytes_, idx)
+    idx, codelen = parse_Integer(bytes_, idx, 32)
     b = bytearray([])
     for i in range(codelen):
       idx, byte = parse_Byte(bytes_, idx)
       b.append(byte)
     return idx,b.hex()
   elif codetype == 0x01:
-    idx, codelen = parse_U32(bytes_, idx)
+    idx, codelen = parse_Integer(bytes_, idx, 32)
     idx, codehash = parse_Bytes32(bytes_, idx)
     return idx, (codelen,codehash)
 
@@ -336,14 +340,13 @@ def gen_Bytecode(file_, bytecode):
   if type(bytecode)==str:
     gen_Byte(file_, 0x00)
     codelen = len(bytecode)//2
-    gen_U32(file_, codelen)
-    #print("codelen",codelen)
+    gen_Integer(file_, codelen)
     for i in range(codelen):
       gen_Byte(file_, bytecode[i])
   else:
     gen_Byte(file_, 0x01)
-    gen_U32(file_,bytecode[0])
-    gen_Bytes32(file_,bytecode[1]) # codehash
+    gen_Integer(file_,bytecode[0])
+    gen_Bytes32(file_,bytecode[1])
 
 def parse_Storage_Leaf_Node(bytes_,idx,depth):
   if verbose: print("parse_Storage_Leaf_Node",bytes_,idx,depth)
