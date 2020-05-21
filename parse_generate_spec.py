@@ -109,7 +109,7 @@ def parse_Nibbles(bytes_, idx, nibbleslen):
   if nibbleslen%2:
     idx, b = parse_Byte_Lower_Nibble_Zero(bytes_,idx)
     nibbles.append(b)
-  return idx, (nibbleslen, nibbles.hex())
+  return idx, nibbles.hex()
 
 def gen_Nibbles(file_, n):
   if verbose: print("gen_Nibbles",file_,n)
@@ -185,7 +185,7 @@ def parse_Tree_Node(bytes_, idx, d, s):
     return idx, leaf
   elif nodetype==0x03:
     idx, hash_ = parse_Bytes32(bytes_, idx)
-    return idx, hash_
+    return idx, ("hash", hash_)
 
 def gen_Tree_Node(file_, node):
   if verbose: print("gen_Tree_Node",file_,node)
@@ -257,7 +257,7 @@ def parse_Child_Of_Extension_Node(bytes_, idx, depth, storage_flag):
     return idx, branch
   elif nodetype==0x03:
     idx, hash_ = parse_Bytes32(bytes_, idx)
-    return idx, hash_
+    return idx, ("hash", hash_)
 
 def gen_Child_Of_Extension_Node(file_, node):
   if node[0]=="branch":
