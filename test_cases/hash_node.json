@@ -1,0 +1,7 @@
+[
+ {
+  "test name": "simple externally owned account as root",
+  "test type": "structure",
+  "witness": "0x0100030000000000000000000000000000000000000000000000000000000000000000"
+ }
+]

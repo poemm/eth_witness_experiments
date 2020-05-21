@@ -1,0 +1,18 @@
+test name: longest extension with hash child
+test type: structure
+version: 1
+trees: [
+ extension: [
+  [64, "0x0000000000000000000000000000000000000000000000000000000000000000"],            # path nibbles
+  {hash: "0x0000000000000000000000000000000000000000000000000000000000000000"} ]    # child node, done with extension node
+]
+
+---
+test name: shortest extension with hash child
+test type: structure
+version: 1
+trees: [
+ extension: [
+  [1, "0x00"],
+  {hash: "0x0000000000000000000000000000000000000000000000000000000000000000"} ]    # end of extension node
+]

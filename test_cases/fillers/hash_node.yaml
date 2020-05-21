@@ -1,0 +1,7 @@
+test name: simple externally owned account as root
+test type: structure
+version: 1
+trees: [
+ hash:
+  "0x0000000000000000000000000000000000000000000000000000000000000000"
+]
