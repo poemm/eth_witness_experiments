@@ -79,7 +79,7 @@ def parse_yaml(filename):
     witnesses.append({"test name":test_name,"test type":test_type,"version":version,"trees":trees})
   return witnesses
 
-def yaml2test(filename):
+def filler2test(filename):
   witnesses = parse_yaml(filename)
   print("[")
   for i,w in enumerate(witnesses):
@@ -87,6 +87,7 @@ def yaml2test(filename):
       print(" ,")
     trees = w["trees"]
     witness_internal_format = ["Ethereum 1x witness",("version", w["version"])] + [["tree",tree] for tree in trees]
+    #print("witness_internal_format:",witness_internal_format)
     bytes_ = bytearray([])
     parse_generate_spec.gen_Block_Witness(bytes_,witness_internal_format)
     print(" {")
@@ -103,7 +104,7 @@ def yaml2test(filename):
 # inputs json test file, outputs s-expression (nested parentheses) format of the test
 
 def test2sexpr_recursive_helper(node, indent):
-  if verbose: print("yaml2sexpr_recursive_helper", node, indent)
+  if verbose: print("test2sexpr_recursive_helper", node, indent)
   print("\n" + " "*indent + "(" + node[0], end="")
   if node[0]=="hash":
     print(" 0x" + node[1] + ")", end="")
@@ -154,6 +155,24 @@ def test2sexpr_recursive_helper(node, indent):
 
 
 
+def parse_json(filename):
+  if verbose: print("test2sexpr",filename)
+  stream = open(filename, 'r')
+  tests = yaml.load_all(stream)
+  #print(tests)
+  witnesses = []
+  sexprs = []
+  tests = next(tests)
+  for t in tests:
+    test_name = t["test name"]
+    test_type = t["test type"]
+    witness_bytes = bytearray.fromhex(t["witness"][2:])
+    idx,trees = parse_generate_spec.parse_Block_Witness(witness_bytes,0)
+    print("\n\n"+t["test name"]+":")
+    test2sexpr_recursive_helper(trees[0][1],0)
+    print()
+
+
 def test2sexpr(filename):
   if verbose: print("test2sexpr",filename)
   stream = open(filename, 'r')
@@ -174,8 +193,39 @@ def test2sexpr(filename):
 
 
 
+
 # test
 # executes the json test file
+def test(filename):
+  if verbose: print("test2sexpr",filename)
+  stream = open(filename, 'r')
+  tests = yaml.load_all(stream)
+  #print(tests)
+  witnesses = []
+  sexprs = []
+  tests = next(tests)
+  for t in tests:
+    print("t:",t)
+    test_name = t["test name"]
+    print("\n\n"+t["test name"]+":")
+    test_type = t["test type"]
+    witness_bytes = bytearray.fromhex(t["witness"][2:])
+    if test_type=="structure":
+      idx,trees = parse_generate_spec.parse_Block_Witness(witness_bytes,0)
+      witness_internal_format = ["Ethereum 1x witness",("version", 1)] + [["tree",tree[1]] for tree in trees]
+      print("witness_internal_format",witness_internal_format)
+      bytes_ = bytearray([])
+      parse_generate_spec.gen_Block_Witness(bytes_,witness_internal_format)
+      print("bytes_",bytes_)
+      print("witness_bytes",witness_bytes)
+      if len(witness_bytes) != len(bytes_):
+        print("ERROR: doesn't match length")
+        continue
+      for i in range(len(bytes_)):
+        if witness_bytes[i] != bytes_[i]:
+          print("ERROR: bytes don't match at index", i)
+          continue
+    print()
 
 
 
@@ -183,10 +233,10 @@ if __name__ == '__main__':
 
   if len(sys.argv)!=3:
     print("usage: python3 test_converter.py <operation> <test_name.yaml>")
-    print("where <operation> is one of: yaml2test, test2sexpr, test")
+    print("where <operation> is one of: filler2test, test2sexpr, test")
 
-  if sys.argv[1] == "yaml2test":
-    yaml2test(sys.argv[2])
+  if sys.argv[1] == "filler2test":
+    filler2test(sys.argv[2])
   elif sys.argv[1] == "test2sexpr":
     test2sexpr(sys.argv[2])
   elif sys.argv[1] == "test":

@@ -202,7 +202,7 @@ def gen_Tree_Node(file_, node):
     gen_Byte(file_, 0x03)
     gen_Bytes32(file_, node[1])
   else:
-    print("ERROR")
+    print("ERROR gen_Tree_Node")
 
 def parse_Branch_Node(bytes_, idx, depth, storage_flag):
   if verbose: print("parse_Branch_Node",idx,depth, storage_flag)
