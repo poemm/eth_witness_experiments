@@ -1,7 +1,8 @@
 import yaml
 import sys
 sys.path.append('..')
-#import parse_generate_spec
+
+# uncomment one parse_Block_Witness() and one gen_Block_Witness
 from parse_generate_spec import gen_Block_Witness
 from parse_generate_spec import parse_Block_Witness
 #from parse_alternative_implementations import parse_Block_Witness
@@ -30,35 +31,29 @@ def parse_witness_recursive_helper(node, storage_tree=False):
   elif "leaf" in node:
     account = node["leaf"]
     if storage_tree==False:
-      if len(account)==6:
-        #pathnibbles = (account[0][0], account[0][1][2:])
-        address = account[1][2:]
-        balance = account[2][2:]
-        nonce = account[3][2:]
-        code = ""
-        if type(account[4])==str:
-          code = account[4][2:]
-        elif len(account[4])==2:
-          code = account[4][0],account[4][1][2:]
-        state = parse_witness_recursive_helper(account[5], storage_tree=True)
-        #return ("leaf", pathnibbles, address, balance, nonce, code, state)
-        return ("leaf", address, balance, nonce, code, state)
-      elif len(account)==4:
-        #pathnibbles = (account[0][0], account[0][1][2:])
-        address = account[1][2:]
-        balance = account[2][2:]
-        nonce = account[3][2:]
-        #return ("leaf", pathnibbles, address, balance, nonce)
+      if len(account)==3:
+        address = account[0][2:]
+        balance = account[1][2:]
+        nonce = account[2][2:]
         return ("leaf", address, balance, nonce)
+      elif len(account)==5:
+        address = account[0][2:]
+        balance = account[1][2:]
+        nonce = account[2][2:]
+        code = ""
+        if type(account[3])==str:
+          code = account[3][2:]
+        elif len(account[3])==2:
+          code = account[3][0],account[3][1][2:]
+        state = parse_witness_recursive_helper(account[4], storage_tree=True)
+        return ("leaf", address, balance, nonce, code, state)
       else:
         print("ERROR unknown account")
         return None
     else: # storage_tree==True
       storageleaf = node["leaf"]
-      #pathnibbles = (storageleaf[0][0], storageleaf[0][1][2:])
-      key = storageleaf[1][2:]
-      value = storageleaf[2][2:]
-      #return ("leaf",pathnibbles,key,value)
+      key = storageleaf[0][2:]
+      value = storageleaf[1][2:]
       return ("leaf",key,value)
   elif "storageleaf" in node:
     storageleaf = node["leaf"]
@@ -69,9 +64,9 @@ def parse_witness_recursive_helper(node, storage_tree=False):
   elif "extension" in node:
     extension = node["extension"]
     assert len(extension)==2
-    pathnibbles = (extension[0][0], extension[0][1][2:])
+    pathlennibbles = (extension[0][0], extension[0][1][2:])
     child = parse_witness_recursive_helper(extension[1],storage_tree)
-    return ("extension", pathnibbles, child)
+    return ("extension", pathlennibbles, child)
   else:
     print("ERROR unknown node")
 
@@ -91,7 +86,7 @@ def parse_yaml(filename):
     witnesses.append({"test name":test_name,"test type":test_type,"version":version,"trees":trees})
   return witnesses
 
-def filler2test(filename):
+def fill(filename):
   witnesses = parse_yaml(filename)
   print("[")
   for i,w in enumerate(witnesses):
@@ -112,6 +107,7 @@ def filler2test(filename):
 
 
 
+#####################################################################################
 # test2sexpr
 # inputs json test file, outputs s-expression (nested parentheses) format of the test
 
@@ -149,18 +145,22 @@ def test2sexpr_recursive_helper(node, indent):
     if len(node)==4:
       #print("\n" + " "*(indent+1) + "(" + node[1][0] + ", \"0x" + node[1][1] + "),")
       print("\n" + " "*(indent+1) + "0x" + node[1] + " ", end="")
-      print("\n" + " "*(indent+1) + "0x" + node[2] + " ", end="")
-      print("\n" + " "*(indent+1) + "0x" + node[3] + ")", end="")
+      #print("\n" + " "*(indent+1) + "" + hex(node[2]) + " ", end="")
+      #print("\n" + " "*(indent+1) + "" + hex(node[3]) + ")", end="")
+      print("\n" + " "*(indent+1) + "" + str(node[2]) + " ", end="")
+      print("\n" + " "*(indent+1) + "" + str(node[3]) + ")", end="")
     elif len(node)==6:
       #print("\n" + " "*(indent+1) + "(" + node[1][0] + ", \"0x" + node[1][1] + "),")
       print("\n" + " "*(indent+1) + "0x" + node[1] + " ", end="")
-      print("\n" + " "*(indent+1) + "0x" + node[2] + " ", end="")
-      print("\n" + " "*(indent+1) + "0x" + node[3] + " ", end="")
-      if type(node[4])==str: # code or codehash is given
+      #print("\n" + " "*(indent+1) + "" + hex(node[2]) + " ", end="")
+      #print("\n" + " "*(indent+1) + "" + hex(node[3]) + ")", end="")
+      print("\n" + " "*(indent+1) + "" + str(node[2]) + " ", end="")
+      print("\n" + " "*(indent+1) + "" + str(node[3]) + " ", end="")
+      if type(node[4])==str: # code is given, not codehash
         #print("okokokokokokokokokokokokokokokkokokokokokokok")
         print("\n" + " "*(indent+1) + "0x" + node[4], end="")
-      else:
-        print("\n" + " "*(indent+1) + "("+ node[4][0] +", 0x" + node[4][1]+")", end="")
+      else: # codehash is given
+        print("\n" + " "*(indent+1) + "("+ str(node[4][0]) +", 0x" + node[4][1]+")", end="")
       test2sexpr_recursive_helper(node[5], indent+1)
       print(")\n")
     elif len(node)==3:
@@ -172,28 +172,32 @@ def test2sexpr_recursive_helper(node, indent):
   #elif node[0]=="storage_leaf":
   #print("\n" + " "*indent + ")")
 
-
-
-
 def test2sexpr(filename):
   if verbose: print("test2sexpr",filename)
   stream = open(filename, 'r')
   tests = yaml.load_all(stream)
-  #print(tests)
   witnesses = []
   sexprs = []
   tests = next(tests)
+  #print(tests)
   for t in tests:
     test_name = t["test name"]
     test_type = t["test type"]
     witness_bytes = bytearray.fromhex(t["witness"][2:])
     idx,trees = parse_Block_Witness(witness_bytes,0)
     print("\n\n"+t["test name"]+":")
+    #print(trees)
     for tree in trees:
-      test2sexpr_recursive_helper(tree[1],0)
+      test2sexpr_recursive_helper(tree,0)
     print()
 
 
+
+
+
+#####################################################################################
+# test
+# inputs a json file, runs tests on the json file
 
 def test_parse(witness_bytes,test_name):
   idx,trees=None,None
@@ -238,10 +242,19 @@ def test(filename):
       if trees==None:
         return
       # generate and test if matches input
-      witness_internal_format = ["Ethereum 1x witness",("version", 1)] + [["tree",tree[1]] for tree in trees]
+      witness_internal_format = ["Ethereum 1x witness",("version", 1)] + [["tree",tree] for tree in trees]
+      #print("witness_internal_format",witness_internal_format)
+      #"""
       ret = test_gen(witness_internal_format, witness_bytes, test_name)
       if not ret:
         return
+      #"""
+    if test_type=="structure error":
+      try:
+        idx,trees = test_parse(witness_bytes, test_name)
+      except AssertionError:
+        print("ok")
+
     print()
 
 
@@ -257,7 +270,7 @@ if __name__ == '__main__':
     print("where <operation> is one of: fill, test, test2sexpr")
 
   if sys.argv[1] == "fill":
-    filler2test(sys.argv[2])
+    fill(sys.argv[2])
   elif sys.argv[1] == "test2sexpr":
     test2sexpr(sys.argv[2])
   elif sys.argv[1] == "test":

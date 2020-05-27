@@ -1,4 +1,16 @@
 
+verbose = 0
+
+
+"""
+This file has several implementations of parsers for block witnesses.
+  parse_Block_Witness_fewer_recursive_funcs() - is like the spec implementation but with some recursive functions merged
+  parse_Block_Witness_single_recursive_func() - is like the above, but all recursive functions merged into one
+  parse_Block_Witness_stack_based() - is a custom-written stack-based implementation
+ 
+"""
+
+
 
 
 #################
@@ -7,13 +19,12 @@
 def parse_Block_Witness(bytes_,idx):
   # PLEASE COMMENT ALL OF THESE BUT ONE
   #return parse_Block_Witness_fewer_recursive_funcs(bytes_,idx)
-  #return parse_Block_Witness_single_recursive_func(bytes_,idx)
-  return parse_Block_Witness_stack_based(bytes_,idx)
+  return parse_Block_Witness_single_recursive_func(bytes_,idx)
+  #return parse_Block_Witness_stack_based(bytes_,idx)
 
 
 
 
-verbose = 0
 
 
 
@@ -23,10 +34,12 @@ verbose = 0
 def parse_Bytes(bytes_, idx, numbytes):
   if verbose: print("parse_Bytes", idx, numbytes, len(bytes_))
   assert len(bytes_)>=idx+numbytes-1
-  if numbytes>1:
-    return idx+numbytes, bytes_[idx:idx+numbytes]
-  else:
+  if numbytes==0:
+    return idx, bytearray([])
+  elif numbytes==1:
     return idx+numbytes, bytes_[idx]
+  else:
+    return idx+numbytes, bytes_[idx:idx+numbytes]
 
 def peek(bytes_, idx):
   assert len(bytes_)>idx
@@ -35,16 +48,26 @@ def peek(bytes_, idx):
 def parse_Nibbles(bytes_, idx, nibbleslen):
   if verbose: print("parse_Nibbles",idx,nibbleslen)
   assert nibbleslen <= 64
-  idx, nibbles = parse_Bytes(bytes_, idx, nibbleslen//2)
-  if type(nibbles)==int:
-    nibbles = bytearray([nibbles])
-  if nibbleslen%2:
-    idx, b = parse_Bytes(bytes_,idx,1)
-    assert b%8==0   # rightmost nibble is zero
-    #print(nibbles, b)
+  nibbles = bytearray([])
+  for i in range(nibbleslen//2):
+    idx, b = parse_Bytes(bytes_, idx, 1)
     nibbles.append(b)
-  return idx, (nibbleslen, nibbles.hex())
+  if nibbleslen%2:
+    idx, b = parse_Bytes(bytes_, idx, 1)
+    assert b%8==0   # rightmost nibble is zero
+    nibbles.append(b)
+  return idx, nibbles.hex()
 
+def parse_Integer(bytes_, idx, n):
+  if verbose: print("parse_Integer(",idx, n,")")
+  idx, low = parse_Bytes(bytes_, idx, 1)
+  assert low<2**n
+  if low>>7:
+    idx,high = parse_Integer(bytes_, idx, n-7)
+    assert high>0
+  else:
+    high = 0
+  return idx, (high<<7) + low - 128*(low>>7)
 
 
 
@@ -66,12 +89,11 @@ def parse_Block_Witness_fewer_recursive_funcs(bytes_,idx):
   assert v == 0x01 # version
   tree_roots = []
   while len(bytes_)>idx:
-    idx,bb00 = parse_Bytes(bytes_,idx,2)
-    assert bb00 == bytearray([0xbb,0x00]) # new tree, no metadata
+    idx,zero = parse_Bytes(bytes_,idx,1)
+    assert zero == 0x00
     idx, tree_root = parse_Node(bytes_,idx, 0, 0)
     tree_roots.append(tree_root)
-    #print("MAIN LOOP", len(bytes_), idx)
-  return tree_roots
+  return idx, tree_roots
 
 def parse_Branch_Node(bytes_, idx, depth, storage_flag):
   if verbose: print("parse_Branch_Node", idx, depth, storage_flag)
@@ -85,47 +107,39 @@ def parse_Branch_Node(bytes_, idx, depth, storage_flag):
       children.append(child)
     else:
       children.append(None)
-  return idx, children
+  return idx, ("branch",children)
 
 def parse_Leaf_Node(bytes_, idx, depth, storage_flag):
   if verbose: print("parse_Leaf_Node", idx, depth, storage_flag)
   assert depth<65
   if storage_flag==0:
     idx, accounttype = parse_Bytes(bytes_, idx, 1)
-    assert accounttype in {0x00,0x01,0x02}
-    if accounttype == 0x00:
-      idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
-      idx, address = parse_Bytes(bytes_,idx,20)
-      idx, balance = parse_Bytes(bytes_,idx,32)
-      idx, nonce = parse_Bytes(bytes_,idx,32)
-      return idx, (pathnibbles, address, balance, nonce)
-    elif accounttype == 0x01:
-      idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
-      idx, address = parse_Bytes(bytes_,idx,20)
-      idx, balance = parse_Bytes(bytes_,idx,32)
-      idx, nonce = parse_Bytes(bytes_,idx,32)
-      idx, codelen = parse_Bytes(bytes_,idx,4)
-      codelen = int.from_bytes(codelen, byteorder="big")
-      idx, code = parse_Bytes(bytes_,idx,codelen)
-      idx, storage = parse_Node(bytes_,idx,0,1)
-      return idx, (pathnibbles, address, balance, nonce, code, storage)
-    elif accounttype == 0x02:
-      idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
-      idx, address = parse_Bytes(bytes_,idx,20)
-      idx, balance = parse_Bytes(bytes_,idx,32)
-      idx, nonce = parse_Bytes(bytes_,idx,32)
-      idx, codehash = parse_Bytes(bytes_,idx,32)
-      idx, codelen = parse_Bytes(bytes_,idx,4)
-      codelen = int.from_bytes(codelen, byteorder="big")
-      idx, storage = parse_Node(bytes_,idx,0,1)
-      return idx, (pathnibbles, address, balance, nonce, codehash, codelen, storage)
-  else:
-    idx, accounttype = parse_Bytes(bytes_, idx, 1)
     assert accounttype in {0x00,0x01}
-    idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
+    if accounttype == 0x00:
+      idx, address = parse_Bytes(bytes_,idx,20)
+      idx, balance = parse_Integer(bytes_,idx,256)
+      idx, nonce = parse_Integer(bytes_,idx,256)
+      return idx, ("leaf", address.hex(), balance, nonce)
+    elif accounttype == 0x01:
+      idx, address = parse_Bytes(bytes_,idx,20)
+      idx, balance = parse_Integer(bytes_,idx,256)
+      idx, nonce = parse_Integer(bytes_,idx,256)
+      idx, bytecodetype = parse_Bytes(bytes_, idx, 1)
+      assert bytecodetype in {0x00,0x01}
+      if bytecodetype == 0x00:
+        idx, codelen = parse_Integer(bytes_,idx,256)
+        idx, code = parse_Bytes(bytes_,idx,codelen)
+        idx, storage = parse_Node(bytes_,idx,0,1)
+        return idx, ("leaf", address.hex(), balance, nonce, code.hex(), storage)
+      elif bytecodetype == 0x01:
+        idx, codelen = parse_Integer(bytes_,idx,256)
+        idx, codehash = parse_Bytes(bytes_,idx,32)
+        idx, storage = parse_Node(bytes_,idx,0,1)
+        return idx, ("leaf", address.hex(), balance, nonce, (codelen, codehash.hex()), storage)
+  else:
     idx, key = parse_Bytes(bytes_,idx,32)
     idx, value = parse_Bytes(bytes_,idx,32)
-    return idx, (pathnibbles, key, value)
+    return idx, ("leaf", key.hex(), value.hex())
 
 def parse_Extension_Node(bytes_,idx, depth, storage_flag):
   if verbose: print("parse_Extension_Node", idx, depth, storage_flag)
@@ -134,25 +148,23 @@ def parse_Extension_Node(bytes_,idx, depth, storage_flag):
   idx, pathnibbles = parse_Nibbles(bytes_,idx,pathnibbleslen)
   assert peek(bytes_,idx) in {0x00,0x03} # extension node can have child branch or hash nodes
   idx, node = parse_Node(bytes_, idx, storage_flag, depth+pathnibbleslen)
-  return idx, ((pathnibbleslen, pathnibbles), node)
+  return idx, ("extension", (pathnibbleslen, pathnibbles), node)
 
 def parse_Node(bytes_, idx, depth, storage_flag):
   if verbose: print("parse_Node", idx, depth, storage_flag)
   idx, node_type = parse_Bytes(bytes_,idx,1)
-  #print("node_type",node_type)
   if node_type == 0x00:  # branch node
     idx, node = parse_Branch_Node(bytes_, idx, depth, storage_flag)
-    return idx, ("branch", node)
+    return idx, node
   elif node_type == 0x01:  # extension node
     idx, node = parse_Extension_Node(bytes_, idx, depth, storage_flag)
-    return idx, ("extension", node)
+    return idx, node
   elif node_type == 0x02:  # leaf node
     idx, node = parse_Leaf_Node(bytes_, idx, depth, storage_flag)
-    #print("parsed leaf node, returning")
-    return idx, ("leaf", node)
+    return idx, node
   elif node_type == 0x03:  # hash node
     idx, hash_ = parse_Bytes(bytes_, idx, 32)
-    return idx, hash_
+    return idx, ("hash",hash_.hex())
   else:
     print("ERROR")
 
@@ -172,17 +184,15 @@ def parse_Block_Witness_single_recursive_func(bytes_,idx):
   assert v == 0x01 # version
   tree_roots = []
   while len(bytes_)>idx:
-    idx,bb00 = parse_Bytes(bytes_,idx,2)
-    assert bb00 == bytearray([0xbb,0x00]) # new tree, no metadata
+    idx,zero = parse_Bytes(bytes_,idx,1)
+    assert zero == 0x00
     idx, tree_root = parse_Node_single_recursive_func(bytes_,idx, 0, 0)
     tree_roots.append(tree_root)
-    #print("MAIN LOOP", len(bytes_), idx)
-  return tree_roots
+  return idx, tree_roots
 
 def parse_Node_single_recursive_func(bytes_, idx, depth, storage_flag):
   idx, node_type = parse_Bytes(bytes_,idx,1)
   if node_type == 0x00:  # branch node
-    #idx, node = parse_Branch_Node(bytes_, idx, depth, storage_flag)
     if verbose: print("parse_Branch_Node", bytes_, idx, depth, storage_flag)
     idx,bitmask = parse_Bytes(bytes_,idx,2)
     bitmaskstr = bin(bitmask[0])[2:].zfill(8) + bin(bitmask[1])[2:].zfill(8)
@@ -196,63 +206,50 @@ def parse_Node_single_recursive_func(bytes_, idx, depth, storage_flag):
         children.append(None)
     return idx, ("branch", children)
   elif node_type == 0x01:  # extension node
-    #idx, node = parse_Extension_Node(bytes_, idx, depth, storage_flag)
     if verbose: print("parse_Extension_Node", bytes_,idx, depth, storage_flag)
     assert depth<64
     idx, pathnibbleslen = parse_Bytes(bytes_,idx,1)
-    idx, (pathnibbleslen, pathnibbles) = parse_Nibbles(bytes_,idx,pathnibbleslen)
+    idx, pathnibbles = parse_Nibbles(bytes_,idx,pathnibbleslen)
     assert peek(bytes_,idx) in {0x00,0x03} # extension node can have child branch or hash nodes
     idx, node = parse_Node_single_recursive_func(bytes_, idx, storage_flag, depth+pathnibbleslen)
-    return idx, ("extension", ((pathnibbleslen, pathnibbles), node))
+    return idx, ("extension", (pathnibbleslen, pathnibbles), node)
   elif node_type == 0x02:  # leaf node
-    #idx, node = parse_Leaf_Node(bytes_, idx, depth, storage_flag)
     if verbose: print("parse_Leaf_Node", bytes_, idx, depth, storage_flag)
     assert depth<65
     if storage_flag==0:
       idx, accounttype = parse_Bytes(bytes_, idx, 1)
-      assert accounttype in {0x00,0x01,0x02}
-      if accounttype == 0x00:
-        idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
-        idx, address = parse_Bytes(bytes_,idx,20)
-        idx, balance = parse_Bytes(bytes_,idx,32)
-        idx, nonce = parse_Bytes(bytes_,idx,32)
-        return idx, (pathnibbles, address, balance, nonce)
-      elif accounttype == 0x01:
-        idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
-        idx, address = parse_Bytes(bytes_,idx,20)
-        idx, balance = parse_Bytes(bytes_,idx,32)
-        idx, nonce = parse_Bytes(bytes_,idx,32)
-        idx, codelen = parse_Bytes(bytes_,idx,4)
-        codelen = int.from_bytes(codelen, byteorder="big")
-        idx, code = parse_Bytes(bytes_,idx,codelen)
-        idx, storage = parse_Node(bytes_,idx,0,1)
-        return idx, (pathnibbles, address, balance, nonce, code, storage)
-      elif accounttype == 0x02:
-        idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
-        idx, nonce = parse_Bytes(bytes_,idx,32)
-        idx, address = parse_Bytes(bytes_,idx,20)
-        idx, balance = parse_Bytes(bytes_,idx,32)
-        idx, codehash = parse_Bytes(bytes_,idx,32)
-        idx, codelen = parse_Bytes(bytes_,idx,4)
-        codelen = int.from_bytes(codelen, byteorder="big")
-        idx, storage = parse_Node(bytes_,idx,0,1)
-        return idx, (pathnibbles, address, balance, nonce, codehash, codelen, storage)
-    else:
-      idx, accounttype = parse_Bytes(bytes_, idx, 1)
       assert accounttype in {0x00,0x01}
-      idx, pathnibbles = parse_Nibbles(bytes_,idx,64-depth)
+      if accounttype == 0x00:
+        idx, address = parse_Bytes(bytes_,idx,20)
+        idx, balance = parse_Integer(bytes_,idx,256)
+        idx, nonce = parse_Integer(bytes_,idx,256)
+        return idx, ("leaf", address.hex(), balance, nonce)
+      elif accounttype == 0x01:
+        idx, address = parse_Bytes(bytes_,idx,20)
+        idx, balance = parse_Integer(bytes_,idx,256)
+        idx, nonce = parse_Integer(bytes_,idx,256)
+        idx, bytecodetype = parse_Bytes(bytes_, idx, 1)
+        assert bytecodetype in {0x00,0x01}
+        if bytecodetype == 0x00:
+          idx, codelen = parse_Integer(bytes_,idx,256)
+          idx, code = parse_Bytes(bytes_,idx,codelen)
+          idx, storage = parse_Node(bytes_,idx,0,1)
+          return idx, ("leaf", address.hex(), balance, nonce, code.hex(), storage)
+        elif bytecodetype == 0x01:
+          idx, codelen = parse_Integer(bytes_,idx,256)
+          idx, codehash = parse_Bytes(bytes_,idx,32)
+          idx, storage = parse_Node(bytes_,idx,0,1)
+          return idx, ("leaf", address.hex(), balance, nonce, (codelen, codehash.hex()), storage)
+    else:
       idx, key = parse_Bytes(bytes_,idx,32)
       idx, value = parse_Bytes(bytes_,idx,32)
-      return idx, ("leaf", (pathnibbles, key, value))
+      return idx, ("leaf", key.hex(), value.hex())
   elif node_type == 0x03:  # hash node
+    if verbose: print("parse_Hash_Node", bytes_,idx, depth, storage_flag)
     idx, hash_ = parse_Bytes(bytes_, idx, 32)
-    return idx, hash_
+    return idx, ("hash",hash_.hex())
   else:
     print("ERROR")
-
-
-
-
 
 
 
@@ -312,12 +309,75 @@ def parse_Block_Witness_stack_based(bytes_,idx):
         stack.append(["extension", (pathnibbleslen, pathnibbles), []])
         nibbledepth+=pathnibbleslen
       elif node_type == 0x02:  # leaf node
+        """
+  elif node_type == 0x02:  # leaf node
+    if verbose: print("parse_Leaf_Node", bytes_, idx, depth, storage_flag)
+    assert depth<65
+    if storage_flag==0:
+      idx, accounttype = parse_Bytes(bytes_, idx, 1)
+      assert accounttype in {0x00,0x01}
+      if accounttype == 0x00:
+        idx, address = parse_Bytes(bytes_,idx,20)
+        idx, balance = parse_Integer(bytes_,idx,256)
+        idx, nonce = parse_Integer(bytes_,idx,256)
+        return idx, ("leaf", address.hex(), balance, nonce)
+      elif accounttype == 0x01:
+        idx, address = parse_Bytes(bytes_,idx,20)
+        idx, balance = parse_Integer(bytes_,idx,256)
+        idx, nonce = parse_Integer(bytes_,idx,256)
+        idx, bytecodetype = parse_Bytes(bytes_, idx, 1)
+        assert bytecodetype in {0x00,0x01}
+        if bytecodetype == 0x00:
+          idx, codelen = parse_Integer(bytes_,idx,256)
+          idx, code = parse_Bytes(bytes_,idx,codelen)
+          idx, storage = parse_Node(bytes_,idx,0,1)
+          return idx, ("leaf", address.hex(), balance, nonce, code.hex(), storage)
+        elif bytecodetype == 0x01:
+          idx, codelen = parse_Integer(bytes_,idx,256)
+          idx, codehash = parse_Bytes(bytes_,idx,32)
+          idx, storage = parse_Node(bytes_,idx,0,1)
+          return idx, ("leaf", address.hex(), balance, nonce, (codelen, codehash.hex()), storage)
+    else:
+      idx, key = parse_Bytes(bytes_,idx,32)
+      idx, value = parse_Bytes(bytes_,idx,32)
+      return idx, ("leaf", key.hex(), value.hex())
+        """
         if verbose: print("leaf 1", idx, nibbledepth, storage_flag)
         assert nibbledepth<65
         if storage_flag==0:
           idx, accounttype = parse_Bytes(bytes_, idx, 1)
           assert accounttype in {0x00,0x01}
-          assert accounttype in {0x00,0x01,0x02}
+          if accounttype == 0x00: # externally owned account
+            idx, address = parse_Bytes(bytes_,idx,20)
+            idx, balance = parse_Integer(bytes_,idx,256)
+            idx, nonce = parse_Integer(bytes_,idx,256)
+            return idx, ("leaf", address, balance, nonce)
+          elif accounttype == 0x01: # contract account
+            idx, address = parse_Bytes(bytes_,idx,20)
+            idx, balance = parse_Integer(bytes_,idx,256)
+            idx, nonce = parse_Integer(bytes_,idx,256)
+            idx, bytecodetype = parse_Bytes(bytes_, idx, 1)
+            assert bytecodetype in {0x00,0x01}
+            if bytecodetype == 0x00:
+              idx, codelen = parse_Integer(bytes_,idx,256)
+              idx, code = parse_Bytes(bytes_,idx,codelen)
+              stack.append(("leaf", address.hex(), balance, nonce, code.hex(), []))
+            elif bytecodetype == 0x01:
+              idx, codelen = parse_Integer(bytes_,idx,256)
+              idx, codehash = parse_Bytes(bytes_,idx,32)
+              stack.append(("leaf", address.hex(), balance, nonce, (codelen, codehash.hex()), []))
+            # finally parse storage tree
+            storage_flag = 1
+            nibbledepth = 0
+            stack.append(["parent_of_root",[]])
+        else:
+          idx, key = parse_Bytes(bytes_,idx,32)
+          idx, value = parse_Bytes(bytes_,idx,32)
+          stack.append(["leaf", key.hex(), value.hex()])
+        """
+        if storage_flag==0:
+          idx, accounttype = parse_Bytes(bytes_, idx, 1)
+          assert accounttype in {0x00,0x01}
           if accounttype == 0x00:
             idx, pathnibbles = parse_Nibbles(bytes_,idx,64-nibbledepth)
             idx, address = parse_Bytes(bytes_,idx,20)
@@ -356,6 +416,7 @@ def parse_Block_Witness_stack_based(bytes_,idx):
           idx, value = parse_Bytes(bytes_,idx,32)
           nibbledepth = 64
           stack.append(["leaf", (64-nibbledepth,pathnibbles), key, value])
+        """
       elif node_type == 0x03:  # hash node
         if verbose: print("hash 1")
         assert nibbledepth<65
@@ -394,7 +455,7 @@ def parse_Block_Witness_stack_based(bytes_,idx):
             break
         elif stack[-1][0] == "leaf":
           if verbose: print("leaf 2")
-          if len(stack[-1])>2:
+          if len(stack[-1])>3:
             storage_flag = 0
           if stack[-1][-1] != []:
             stack[-2][-1].append(stack.pop())

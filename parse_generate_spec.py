@@ -20,6 +20,7 @@ def gen_Byte(file_, byte):
   file_.append(byte)
 
 def parse_Integer(bytes_, idx, n):
+  if verbose: print("parse_Integer(",idx, n,")")
   idx, low = parse_Byte(bytes_, idx)
   assert low<2**n
   if low>>7:
@@ -30,12 +31,14 @@ def parse_Integer(bytes_, idx, n):
   return idx, (high<<7) + low - 128*(low>>7)
 
 def gen_Integer(file_,integer):
-  integer_ = int(integer)
-  if integer_<128:
-    gen_Byte(file_,integer_)
+  if verbose: print("gen_Integer(",file_,integer,")")
+  if type(integer)==str:
+    integer = int(integer,16)
+  if integer<128:
+    gen_Byte(file_,integer)
   else:
-    gen_Byte(file_,128+integer_%128)
-    gen_Integer(file_,integer_>>7)
+    gen_Byte(file_,128+integer%128)
+    gen_Integer(file_,integer>>7)
 
 def parse_Bytes32(bytes_,idx):
   if verbose: print("parse_Bytes32",bytes_,idx)
@@ -151,23 +154,16 @@ def gen_Version(file_):
   gen_Byte(file_,0x01)
 
 def parse_Tree(bytes_,idx):
-  idx,c = parse_Metadata(bytes_,idx)
+  idx, b = parse_Byte(bytes_, idx)
+  assert b==0x00
   idx,w = parse_Tree_Node(bytes_,idx,0,0)
-  return idx, (c,w)
+  return idx, w
 
 def gen_Tree(file_, w):
   if verbose: print("gen_Tree",file_,w)
-  gen_Metadata(file_, None)
+  gen_Byte(file_,0x00)
   gen_Tree_Node(file_,w[1])
 
-def parse_Metadata(bytes_,idx):
-  idx, b = parse_Byte(bytes_, idx)
-  assert b == 0x00
-  return idx, ()
-
-def gen_Metadata(file_, c):
-  if verbose: print("gen_Metadata",file_,c)
-  gen_Byte(file_,0x00)
 
 
 #################################
@@ -293,13 +289,13 @@ def parse_Account_Node(bytes_,idx,depth):
   assert accounttype in {0x00,0x01}
   if accounttype == 0x00:
     idx, address = parse_Address(bytes_,idx)
-    idx, nonce = parse_Integer(bytes_,idx,256)
     idx, balance = parse_Integer(bytes_,idx,256)
+    idx, nonce = parse_Integer(bytes_,idx,256)
     return idx, ("leaf", address, balance, nonce)
   elif accounttype == 0x01:
     idx, address = parse_Address(bytes_,idx)
-    idx, nonce = parse_Integer(bytes_,idx,256)
     idx, balance = parse_Integer(bytes_,idx,256)
+    idx, nonce = parse_Integer(bytes_,idx,256)
     idx, bytecode = parse_Bytecode(bytes_,idx)
     idx, storage = parse_Tree_Node(bytes_, idx, 0, 1)
     return idx, ("leaf", address, balance, nonce, bytecode, storage)

@@ -1,4 +1,4 @@
-test name: simple externally owned account as root
+test name: simple hash as root
 test type: structure
 version: 1
 trees: [
