@@ -19,26 +19,18 @@ def gen_Byte(file_, byte):
   #file_.write(byte)
   file_.append(byte)
 
-def parse_Integer(bytes_, idx, n):
-  if verbose: print("parse_Integer(",idx, n,")")
-  idx, low = parse_Byte(bytes_, idx)
-  assert low<2**n
-  if low>>7:
-    idx,high = parse_Integer(bytes_, idx, n-7)
-    assert high>0
-  else:
-    high = 0
-  return idx, (high<<7) + low - 128*(low>>7)
+def parse_Bytes2(bytes_,idx):
+  if verbose: print("parse_Bytes2",bytes_,idx)
+  b = bytearray([])
+  for i in range(2):
+    idx, byte = parse_Byte(bytes_, idx)
+    b.append(byte)
+  return idx, b
 
-def gen_Integer(file_,integer):
-  if verbose: print("gen_Integer(",file_,integer,")")
-  if type(integer)==str:
-    integer = int(integer,16)
-  if integer<128:
-    gen_Byte(file_,integer)
-  else:
-    gen_Byte(file_,128+integer%128)
-    gen_Integer(file_,integer>>7)
+def gen_Bytes2(file_,b):
+  if verbose: print("gen_Bytes2",file_,b)
+  for i in range(2):
+    gen_Byte(file_,b[i])
 
 def parse_Bytes32(bytes_,idx):
   if verbose: print("parse_Bytes32",bytes_,idx)
@@ -76,45 +68,16 @@ def gen_Byte_Nonzero(file_, b):
   assert b != 0x00
   gen_Byte(file_,b)
 
-def parse_Byte_More_Than_One_Bit_Set(bytes_, idx):
-  idx, b = parse_Byte(bytes_, idx)
-  assert b not in {0x00,0x01,0x02,0x04,0x08}
-  return idx, bytearray([b])
-
-def gen_Byte_More_Than_One_Bit_Set(file_, b):
-  gen_Byte(file_,b)
-
-def parse_Bytes2_More_Than_One_Bit_Set(bytes_, idx):
-  idx, b1 = parse_Byte(bytes_,idx)
-  if bin(b1).count('1')==0:
-    idx, b2 = parse_Byte_More_Than_One_Bit_Set(bytes_,idx)
-  elif bin(b1).count('1')==1:
-    idx, b2 = parse_Byte_Nonzero(bytes_,idx)
-  elif bin(b1).count('1')>1:
-    idx, b2 = parse_Byte(bytes_,idx)
-  return idx, bytearray([b1,b2])
-
-def gen_Bytes2_More_Than_One_Bit_Set(file_, b):
-  gen_Byte(file_,b[0])
-  gen_Byte(file_,b[1])
-
-def parse_Byte_Lower_Nibble_Zero(bytes_, idx):
-  idx, b = parse_Byte(bytes_, idx)
-  assert b%16==0
-  return idx, b
-
-def gen_Byte_Lower_Nibble_Zero(file_, b):
-  gen_Byte(file_,b)
-
 def parse_Nibbles(bytes_, idx, nibbleslen):
   if verbose: print("parse_Nibbles",idx,nibbleslen)
-  assert nibbleslen <= 64
+  assert 0 <= nibbleslen and nibbleslen <= 64
   nibbles = bytearray([])
   for i in range(nibbleslen//2):
     idx, b = parse_Byte(bytes_, idx)
     nibbles.append(b)
   if nibbleslen%2:
-    idx, b = parse_Byte_Lower_Nibble_Zero(bytes_,idx)
+    idx, b = parse_Byte(bytes_,idx)
+    assert b%16==0
     nibbles.append(b)
   return idx, nibbles.hex()
 
@@ -124,6 +87,30 @@ def gen_Nibbles(file_, n):
   for b in bytes_:
     gen_Byte(file_,b)
 
+
+###################################
+# LEB128 - variable-length integers
+
+def parse_Integer(bytes_, idx, n):
+  if verbose: print("parse_Integer(",idx, n,")")
+  idx, low = parse_Byte(bytes_, idx)
+  assert low<2**n
+  if low>>7:
+    idx,high = parse_Integer(bytes_, idx, n-7)
+    assert high>0
+  else:
+    high = 0
+  return idx, (high<<7) + low - 128*(low>>7)
+
+def gen_Integer(file_,integer):
+  if verbose: print("gen_Integer(",file_,integer,")")
+  if type(integer)==str:
+    integer = int(integer,16)
+  if integer<128:
+    gen_Byte(file_,integer)
+  else:
+    gen_Byte(file_,128+integer%128)
+    gen_Integer(file_,integer>>7)
 
 
 #####################################
@@ -207,8 +194,9 @@ def gen_Tree_Node(file_, node):
 def parse_Branch_Node(bytes_, idx, depth, storage_flag):
   if verbose: print("parse_Branch_Node",idx,depth, storage_flag)
   assert depth < 64
-  idx, bitmask = parse_Bytes2_More_Than_One_Bit_Set(bytes_, idx)
+  idx, bitmask = parse_Bytes2(bytes_, idx)
   bitmaskstr = bin(bitmask[0])[2:].zfill(8) + bin(bitmask[1])[2:].zfill(8)
+  assert bitmaskstr.count('1') >= 2
   c = [None]*16
   for i in range(16):
     if bitmaskstr[i]=='1':
@@ -226,7 +214,7 @@ def gen_Branch_Node(file_,b):
     else:
       bitmaskstr += '0'
   bitmask = int(bitmaskstr,2).to_bytes(2,"big")
-  gen_Bytes2_More_Than_One_Bit_Set(file_,bitmask)
+  gen_Bytes2(file_,bitmask)
   # generate children
   for i in range(16):
     if bitmaskstr[i]=='1':
