@@ -1,3 +1,4 @@
+import merkleize
 import yaml
 import sys
 sys.path.append('..')
@@ -100,7 +101,15 @@ def fill(filename):
     print(" {")
     print("  \"test name\": \"" + w["test name"] + "\",")
     print("  \"test type\": \"" + w["test type"] + "\",")
-    print("  \"witness\": \"0x" + bytes_.hex() + "\"")
+    print("  \"witness\": \"0x" + bytes_.hex() + "\",")
+    print("  \"root hashes\":[",end="")
+    roothashes=[]
+    for tree in trees:
+      tree_root_hash = merkleize.merkleize(tree,0,0)
+      print("\"0x" + tree_root_hash.hex() + "\"",end="")
+      if tree!=trees[-1]:
+        print(",",end="")
+    print("]",end="")
     print(" }")
   print("]")
 
