@@ -3,35 +3,41 @@
   "test name": "leb128 edge cases for 0 and 1",
   "test types": "basic, leb128, externally owned account",
   "witness": "0x0100020000000000000000000000000000000000000000000001",
-  "root hashes":["0x90790e0d482ba05bcc4af9404a406d6c200136c3e854cfbcd73eedf91a3180f1"] }
+  "root hashes":["0x90790e0d482ba05bcc4af9404a406d6c200136c3e854cfbcd73eedf91a3180f1"]
+ }
  ,
  {
   "test name": "leb128 edge cases for 127 and 128",
   "test types": "basic, leb128, externally owned account",
   "witness": "0x0100020000000000000000000000000000000000000000007f8001",
-  "root hashes":["0x718a682caf73c96a36a8c3131778c9b04f79ed8872574e566655ddd17b5e68f7"] }
+  "root hashes":["0x718a682caf73c96a36a8c3131778c9b04f79ed8872574e566655ddd17b5e68f7"]
+ }
  ,
  {
   "test name": "leb128 edge cases for 16383 and 16384",
   "test types": "basic, leb128, externally owned account",
   "witness": "0x010002000000000000000000000000000000000000000000ff7f808001",
-  "root hashes":["0x1ddfdcf193ef3d672b9a9d51247d5f6714c733ed33b5b52e1472f080bbef76e1"] }
+  "root hashes":["0x1ddfdcf193ef3d672b9a9d51247d5f6714c733ed33b5b52e1472f080bbef76e1"]
+ }
  ,
  {
   "test name": "leb128 edge cases for 2^256-2 and 2^256-1",
   "test types": "basic, leb128, externally owned account",
   "witness": "0x010002000000000000000000000000000000000000000000feffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0fffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff0f",
-  "root hashes":["0xdfad444c66318c2c20734ef7bae42ae20ba136eacbc02ab6db34b95deef0708d"] }
+  "root hashes":["0xdfad444c66318c2c20734ef7bae42ae20ba136eacbc02ab6db34b95deef0708d"]
+ }
  ,
  {
   "test name": "error, leb128 edge cases for 2^256",
   "test types": "error, basic, leb128, externally owned account",
   "witness": "0x0100020000000000000000000000000000000000000000008080808080808080808080808080808080808080808080808080808080808080808080801000",
-  "root hashes":["0x648f2f7592160e7bfca6b18995efae1d27385af8c8ce4f1ace991dd8e4422305"] }
+  "root hashes":["0x648f2f7592160e7bfca6b18995efae1d27385af8c8ce4f1ace991dd8e4422305"]
+ }
  ,
  {
   "test name": "error, leb128 edge cases for 2^256+1",
   "test types": "error, basic, leb128, externally owned account",
   "witness": "0x0100020000000000000000000000000000000000000000008180808080808080808080808080808080808080808080808080808080808080808080801000",
-  "root hashes":["0x3927440887179317abdb79d6eb84794449d6cab5f43a5479b68150c1bbd7f4d8"] }
+  "root hashes":["0x3927440887179317abdb79d6eb84794449d6cab5f43a5479b68150c1bbd7f4d8"]
+ }
 ]

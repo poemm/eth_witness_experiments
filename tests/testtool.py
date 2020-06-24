@@ -111,7 +111,8 @@ def fill(filename):
         print(",",end="")
       tree_root_hash = ethereum_spec.merkleize(tree,0,0)
       print("\"0x" + tree_root_hash.hex() + "\"",end="")
-    print("]",end="")
+    #print("]",end="")
+    print("]")
     print(" }")
   print("]")
 
