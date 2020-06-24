@@ -2,7 +2,7 @@
 
 `filled/` contains all tests. It may include tests generated from `fillers/`, and hand-written tests when convenient. The test format is meant to be intuitive.
 
-`fillers/` contains files used to generate ("fill") tests. These files are more general than a text format for witnesses, since they can define error cases. Test fillers are composed of nested lists and key-value pairs. To make tests as pleasant as possible to write, the test filler format is a concise yaml format (with some json where convenient), since pure json would be less concise. The syntax and semantics of this text format is only specified in the tools used to process them. There could be other filler formats where convenient.
+`fillers/` contains files used to generate ("fill") tests. The filler format is more general than a text format for witnesses, since they can define error cases. To make tests as pleasant as possible to write, the test filler format is a concise yaml format (with some json where convenient), since pure json would be less concise.
 
 `testtool.py` is for processing test files and executing tests. See example uses below.
 
