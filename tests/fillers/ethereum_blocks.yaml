@@ -1,5 +1,5 @@
 test name: Ethereum block 1 witness
-test type: structure, merklization, real block, branch, hash
+test type: real block, branch, hash, merkleization
 version: 1
 trees: [
   branch: [

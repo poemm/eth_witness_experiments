@@ -1,5 +1,5 @@
 test name: longest extension with hash child
-test type: structure
+test type: basic, extension
 version: 1
 trees: [
  extension: [
@@ -9,7 +9,7 @@ trees: [
 
 ---
 test name: shortest extension with hash child
-test type: structure
+test type: basic, extension
 version: 1
 trees: [
  extension: [

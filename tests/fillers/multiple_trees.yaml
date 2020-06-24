@@ -1,5 +1,5 @@
 test name: two trees, both just a hash as root
-test type: structure
+test type: basic, multiple trees, hash
 version: 1
 trees: [
  hash: "0x0000000000000000000000000000000000000000000000000000000000000000",
@@ -8,7 +8,7 @@ trees: [
 
 ---
 test name: two trees, hash node then minamal branch node
-test type: structure
+test type: basic, multiple trees, hash, branch
 version: 1
 trees: [
  hash: "0x0000000000000000000000000000000000000000000000000000000000000000",

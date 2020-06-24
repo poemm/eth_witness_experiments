@@ -1,5 +1,5 @@
-test name: simple externally owned account as root
-test type: structure
+test name: basic externally owned account as root
+test type: basic, leaf, externally owned account
 version: 1
 trees: [
  leaf: [
@@ -9,8 +9,8 @@ trees: [
 ]
 
 ---
-test name: simple contract account as root
-test type: structure
+test name: basic contract account as root
+test type: basic, leaf, contract account
 version: 1
 trees: [
  leaf: [
@@ -22,8 +22,8 @@ trees: [
 ]
 
 ---
-test name: simple contract account as root with codehash
-test type: structure
+test name: basic contract account as root with codehash and hash node as storage tree
+test type: basic, leaf, contract account, codehash
 version: 1
 trees: [
  leaf: [
@@ -35,19 +35,8 @@ trees: [
 ]
 
 ---
-test name: error externally owned account too deep
-test type: structure error
-version: 1
-trees: [
- leaf: [
-  "0x0000000000000000000000000000000000000000",
-  "0x0000000000000000000000000000000000000000000000000000000000000000",
-  "0x0000000000000000000000000000000000000000000000000000000000000000"]
-]
-
----
-test name: contract account with storage leaf
-test type: structure
+test name: basic contract account as root with basic storage leaf as root of storage tree
+test type: basic, leaf, contract account, storage leaf
 version: 1
 trees: [
  leaf: [

@@ -1,5 +1,5 @@
 test name: simple hash as root
-test type: structure
+test type: basic, hash
 version: 1
 trees: [
  hash:

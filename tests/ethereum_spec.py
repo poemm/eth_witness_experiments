@@ -120,8 +120,8 @@ def merkleize_leaf(leaf_node,nibbledepth,storageflag):
   addyhex = leaf_node[1]
   leaf_data = leaf_node[2:]
   if not storageflag:
-    nonce = int(leaf_data[0],16)
-    balance = int(leaf_data[1],16)
+    nonce = leaf_data[0]
+    balance = leaf_data[1]
     if len(leaf_data)==2:
       account = [BE(nonce),
                  BE(balance),
@@ -143,7 +143,8 @@ def merkleize_leaf(leaf_node,nibbledepth,storageflag):
   else:
     key = bytes.fromhex(addyhex)
     value = bytes.fromhex(leaf_data[0])
-    rlp_encoded_leaf_data = RLP([key,value])
+    #rlp_encoded_leaf_data = RLP([key,value])
+    rlp_encoded_leaf_data = RLP(value)
   segment = sha3.keccak_256(bytes.fromhex(addyhex)).digest().hex()[nibbledepth:]
   if len(segment) % 2 == 0:
     segment_hp = bytes.fromhex("20" + segment)

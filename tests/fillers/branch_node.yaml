@@ -1,5 +1,5 @@
-test name: simple branch node with first two child hashes
-test type: structure
+test name: basic branch node with first two child hashes
+test type: basic, branch
 version: 1
 trees: [
  branch: [
@@ -10,7 +10,7 @@ trees: [
 
 ---
 test name: branch as root, all hash children
-test type: structure
+test type: basic, branch
 version: 1
 trees: [
  branch: [
@@ -34,7 +34,7 @@ trees: [
 
 ---
 test name: simple nested branch nodes
-test type: structure
+test type: basic, branch, nested
 version: 1
 trees: [
  branch: [
@@ -48,7 +48,7 @@ trees: [
 
 ---
 test name: maximally nested branch nodes, then a hash node
-test type: structure
+test type: basic, branch, nested
 version: 1
 trees: [
  branch: [

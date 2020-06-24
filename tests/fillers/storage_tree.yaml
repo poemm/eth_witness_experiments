@@ -1,5 +1,5 @@
 test name: contract account with storage leaf
-test type: structure
+test type: basic, contract account, storage tree, leaf
 version: 1
 trees: [
  leaf: [
@@ -9,7 +9,6 @@ trees: [
   "0x",
   leaf: [
    "0x0000000000000000000000000000000000000000000000000000000000000000",
-   "0x0000000000000000000000000000000000000000000000000000000000000000",
    "0x0000000000000000000000000000000000000000000000000000000000000000"
   ]
  ]
@@ -17,7 +16,7 @@ trees: [
 
 ---
 test name: contract account with storage leaf
-test type: structure
+test type: basic, contract account, storage tree, branch, leaf
 version: 1
 trees: [
  leaf: [

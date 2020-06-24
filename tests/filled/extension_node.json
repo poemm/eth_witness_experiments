@@ -1,13 +1,13 @@
 [
  {
   "test name": "longest extension with hash child",
-  "test type": "structure",
+  "test types": "basic, extension",
   "witness": "0x010001400000000000000000000000000000000000000000000000000000000000000000030000000000000000000000000000000000000000000000000000000000000000",
   "root hashes":["0x78b9edd0ef0c102d166436e8f4bf932e2fc5cdfed8405164254334204d277ef7"] }
  ,
  {
   "test name": "shortest extension with hash child",
-  "test type": "structure",
+  "test types": "basic, extension",
   "witness": "0x0100010100030000000000000000000000000000000000000000000000000000000000000000",
   "root hashes":["0x829d9e56ab973bb8ef3758b3635cce4e3cb686010a608d8d2cfc88ce3018e433"] }
 ]
