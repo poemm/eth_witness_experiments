@@ -4,6 +4,7 @@ import pprint
 
 verbose = 0
 
+
 ############
 # base stuff
 
@@ -16,7 +17,6 @@ def parse_Byte(bytes_, idx):
 
 def gen_Byte(file_, byte):
   #if verbose: print("gen_byte",file_,byte)
-  #file_.write(byte)
   file_.append(byte)
 
 def parse_Bytes2(bytes_,idx):
@@ -149,7 +149,7 @@ def parse_Tree(bytes_,idx):
 def gen_Tree(file_, w):
   if verbose: print("gen_Tree",file_,w)
   gen_Byte(file_,0x00)
-  gen_Tree_Node(file_,w[1])
+  gen_Tree_Node(file_,w[1],0,0)
 
 
 
@@ -171,23 +171,29 @@ def parse_Tree_Node(bytes_, idx, d, s):
     idx, leaf = parse_Leaf_Node(bytes_, idx, d, s)
     return idx, leaf
   elif nodetype==0x03:
-    idx, hash_ = parse_Bytes32(bytes_, idx)
+    if s==1 and d>=9:
+      idx, hash_ = parse_Storage_Hash_Or_Short_RLP(bytes_,idx)
+    else:
+      idx, hash_ = parse_Bytes32(bytes_, idx)
     return idx, ("hash", hash_)
 
-def gen_Tree_Node(file_, node):
+def gen_Tree_Node(file_, node, d, s):
   if verbose: print("gen_Tree_Node",file_,node)
   if node[0]=="branch":
     gen_Byte(file_, 0x00)
-    gen_Branch_Node(file_, node)
+    gen_Branch_Node(file_, node, d ,s)
   elif node[0]=="extension":
     gen_Byte(file_, 0x01)
-    gen_Extension_Node(file_, node)
+    gen_Extension_Node(file_, node, d, s)
   elif node[0]=="leaf":
     gen_Byte(file_, 0x02)
-    gen_Leaf_Node(file_, node)
+    gen_Leaf_Node(file_, node, d, s)
   elif node[0]=="hash":
     gen_Byte(file_, 0x03)
-    gen_Bytes32(file_, node[1])
+    if s==1 and d>=9:
+      gen_Storage_Hash_Or_Short_RLP(file_, node)
+    else:
+      gen_Bytes32(file_, node[1])
   else:
     print("ERROR gen_Tree_Node")
 
@@ -204,7 +210,7 @@ def parse_Branch_Node(bytes_, idx, depth, storage_flag):
       c[i] = child
   return idx, ("branch", c)
 
-def gen_Branch_Node(file_,b):
+def gen_Branch_Node(file_,b,d,s):
   if verbose: print("gen_Branch_Node",file_,b)
   # generate bitmask
   bitmaskstr = ""
@@ -218,7 +224,7 @@ def gen_Branch_Node(file_,b):
   # generate children
   for i in range(16):
     if bitmaskstr[i]=='1':
-      gen_Tree_Node(file_,b[1][i])
+      gen_Tree_Node(file_,b[1][i],d+1,s)
 
 def parse_Extension_Node(bytes_, idx, depth, storage_flag):
   if verbose: print("parse_Extension_Node", idx, depth, storage_flag)
@@ -229,14 +235,14 @@ def parse_Extension_Node(bytes_, idx, depth, storage_flag):
   # if odd number of nibbles, last one must be zeros
   return idx, ("extension", (nibbleslen, nibbles), child)
 
-def gen_Extension_Node(file_,e):
+def gen_Extension_Node(file_,e,d,s):
   if verbose: print("gen_Extension_Node",file_,e)
   gen_Byte(file_, e[1][0])
   gen_Nibbles(file_, e[1][1])
-  gen_Child_Of_Extension_Node(file_,e[2])
+  gen_Child_Of_Extension_Node(file_,e[2],d+e[1][0],s)
 
 def parse_Child_Of_Extension_Node(bytes_, idx, depth, storage_flag):
-  if verbose: print("parse_Child_Of_Extension_Node",bytes_,idx,depth)
+  if verbose: print("parse_Child_Of_Extension_Node",bytes_.hex(),idx,depth,storage_flag)
   assert depth<65
   idx, nodetype = parse_Byte(bytes_, idx)
   assert nodetype in {0x00,0x03}
@@ -244,16 +250,22 @@ def parse_Child_Of_Extension_Node(bytes_, idx, depth, storage_flag):
     idx, branch = parse_Branch_Node(bytes_, idx, depth, storage_flag)
     return idx, branch
   elif nodetype==0x03:
-    idx, hash_ = parse_Bytes32(bytes_, idx)
+    if storage_flag==1 and depth>=9:
+      idx, hash_ = parse_Storage_Hash_Or_Short_RLP(bytes_,idx)
+    else:
+      idx, hash_ = parse_Bytes32(bytes_, idx)
     return idx, ("hash", hash_)
 
-def gen_Child_Of_Extension_Node(file_, node):
+def gen_Child_Of_Extension_Node(file_, node, d, s):
   if node[0]=="branch":
     gen_Byte(file_, 0x00)
-    gen_Branch_Node(file_, node)
+    gen_Branch_Node(file_, node, d, s)
   elif node[0]=="hash":
     gen_Byte(file_, 0x03)
-    gen_Bytes32(file_, node[1])
+    if s==1 and d>=9:
+      gen_Storage_Hash_Or_Short_RLP(file_, node)
+    else:
+      gen_Bytes32(file_, node[1])
 
 def parse_Leaf_Node(bytes_,idx, depth, storage_flag):
   if verbose: print("parse_Leaf_Node", idx, depth, storage_flag)
@@ -263,10 +275,10 @@ def parse_Leaf_Node(bytes_,idx, depth, storage_flag):
   else: # leaf of storage tree
     return parse_Storage_Leaf_Node(bytes_,idx,depth)
 
-def gen_Leaf_Node(file_, leaf):
+def gen_Leaf_Node(file_, leaf, d, s):
   if verbose: print("gen_Leaf_Node",file_,leaf)
   #print("gen_Leaf_Node",file_,leaf,len(leaf))
-  if len(leaf)>3:
+  if s==0: #len(leaf)>3:
     gen_Account_Node(file_, leaf)
   else:
     gen_Storage_Leaf_Node(file_, leaf)
@@ -301,7 +313,7 @@ def gen_Account_Node(file_, leaf):
     gen_Integer(file_,leaf[2])
     gen_Integer(file_,leaf[3])
     gen_Bytecode(file_,leaf[4])
-    gen_Tree_Node(file_,leaf[5])
+    gen_Tree_Node(file_,leaf[5],0,1)
 
 def parse_Bytecode(bytes_, idx):
   if verbose: print("parse_Bytecode(",bytes_, idx,")")
@@ -342,4 +354,44 @@ def gen_Storage_Leaf_Node(file_, leaf):
   gen_Bytes32(file_,leaf[1])
   gen_Bytes32(file_,leaf[2])
 
+def parse_Storage_Hash_Or_Short_RLP(bytes_,idx):
+  if verbose: print("parse_Storage_Hash_Or_Short_RLP",bytes_,idx)
+  idx, firstbyte = parse_Byte(bytes_, idx)
+  if firstbyte != 0x00:
+    h0 = firstbyte
+    hrest = bytearray([])
+    for i in range(31):
+      idx, byte = parse_Byte(bytes_, idx)
+      hrest.append(byte)
+    return idx, bytearray(bytes([h0])+hrest).hex()
+  else:
+    idx, secondbyte = parse_Byte(bytes_, idx)
+    if secondbyte == 0:
+      hrest = bytearray([])
+      for i in range(31):
+        idx, byte = parse_Byte(bytes_, idx)
+        hrest.append(byte)
+      return idx, bytearray(bytes([0])+hrest).hex()
+    else:
+      len_ = secondbyte
+      b = bytearray([])
+      for i in range(len_):
+        idx, byte = parse_Byte(bytes_, idx)
+        b.append(byte)
+      return idx, b.hex()
+
+def gen_Storage_Hash_Or_Short_RLP(file_, node):
+  if verbose: print("gen_Storage_Hash_Or_Short_RLP(",file_,node,")")
+  hash_or_short_rlp_bytes = bytes.fromhex(node[1])
+  if hash_or_short_rlp_bytes[0]!=0:
+    gen_Bytes32(file_,hash_or_short_rlp_bytes)
+  else:
+    gen_Byte(file_,0)
+    if len(hash_or_short_rlp_bytes)==32:
+      gen_Bytes32(file_,hash_or_short_rlp_bytes)
+    else:
+      len_ = len(hash_or_short_rlp_bytes)
+      gen_Byte(file_,len_)
+      for b in hash_or_short_rlp_bytes:
+        gen_Byte(file_,b)
 

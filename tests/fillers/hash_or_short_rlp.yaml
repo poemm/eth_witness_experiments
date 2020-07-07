@@ -1,0 +1,14 @@
+test name: simplest case of the special case where we include an rlp encoding in place of a hash
+test type: basic, dummy values, rlp, leaf, extension, contract account, storage leaf
+version: 1
+trees: [
+ leaf: [
+  "0x0000000000000000000000000000000000000000",
+  "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "0x0000000000000000000000000000000000000000000000000000000000000000",
+  "",
+  extension: [
+   [9, "0x0000000000"],    # path nibbles
+   {hash: "0x00000000000000000000000000000000000000000000000000000000000000"} ]    # dummy rlp of length 31, labeled "hash" since it is rare and behaves like a hash for our purposes
+ ]
+]
