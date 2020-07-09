@@ -5,7 +5,10 @@ Need an ethereum node exposing rpc debug api (default should work locally, other
 python3 get_block_proof.py <blocknum>
 ```
 
-Output is an ethereum block witness. The witness is in a json text format, for example the following witness for ethereum block 1.
+Output is an ethereum block witness in a JSON text format. A loose definition of this text format follows. The witness tree is built of nested lists. Each tree node is a list with first element either `"hash"`, `"branch"`, `"extension"`, or `"leaf"` designating its node type. A `"hash"` node has a hex string representing a hash (or, rarely, a short rlp, see yellowpaper, appx D, function n(), case <32). A `"branch"` node has 16 child nodes, some children may be empty (represented by an empty string `""`). An `"extension"` node includes a `[<nibble depth>, <nibbles byte aligned>]` followed by its child node. Finally, a `"leaf"` node has many cases. For an externally-owned account, it has `<address>, <balance>, <nonce>`. For a contract account, it has `<address>, <balance>, <nonce>, <code>, <storage>`, where `<code>` can be `<full bytecode>` or `[<code length>, <code hash>]`, and where `<storage>` is itself a tree node. A `"leaf"` node of a storage tree has two items, `<storage key>, <storage value>`. Values are hex strings or integers.
+
+For example the following witness for ethereum block #1.
+
 ```
  ["branch", [
    ["hash", "90dcaf88c40c7bbc95a912cbdde67c175767b31173df9ee4b0d733bfdd511c43"],
