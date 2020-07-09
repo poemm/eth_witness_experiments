@@ -1,7 +1,7 @@
 import sys
 import pprint
 import json
-import sha3     # pip install pysha3
+import sha3     # pip install pysha3, or maybe python3 -m pip install --user pysha3
 
 
 import requests
@@ -34,7 +34,7 @@ def getWitnessForBlock(blocknum):
     print("ERROR with eth_getBlockByNumber, response:",response.json())
     print(response.text)
     sys.exit("ERROR parsing eth_getCode, stopping.")
-  print("BLOCK:\n",block)
+  #print("BLOCK:\n",block)
   if verbose>1: print("gasUsed: {}".format(block['gasUsed']))
   if verbose>1: print("tx count: {}".format(len(block['transactions'])))
 
@@ -206,7 +206,7 @@ def getWitnessForBlock(blocknum):
     try:
       accounts_touched = response.json()['result']
       # accounts_touched is a dict of values: '0x<acct_addy>': {'balance': '0x<number of wei>', 'nonce': <integer>, 'code': '0x<code or nothing>', 'storage': {<dict of 0x<key>:0x<value>>}}
-      print("\ntrace for txhash",txhash,"\n",accounts_touched)
+      #print("\ntrace for txhash",txhash,"\n",accounts_touched)
     except:
       print("ERROR parsing debug_traceTransaction response!", sys.exc_info()[0])
       print(response.text)
@@ -241,7 +241,7 @@ def getWitnessForBlock(blocknum):
     #print(response.text)
     try:
       uncle = response.json()['result']
-      print("\nuncleheader:",uncle)
+      #print("\nuncleheader:",uncle)
     except:
       print("ERROR parsing eth_getUncle... response!", sys.exc_info()[0])
       print(response.text)
@@ -274,7 +274,7 @@ def getWitnessForBlock(blocknum):
     #print(response.text)
     try:
       proof = response.json()['result']
-      print("\nproof for address",address,"\n",proof)
+      #print("\nproof for address",address,"\n",proof)
     except:
       print("ERROR parsing eth_getProof response!", sys.exc_info()[0])
       print(response.text)
@@ -510,7 +510,7 @@ def merge_path_witness_to_witness(path_node, witness_node):
     if path_node[0]!="extension":
       print("ERROR EXTENSION NODE!!!!!!!!!")
       sys.exit(1)
-    print("HEY EXTENSION!!!!!!!!!")
+    #print("HEY EXTENSION!!!!!!!!!")
     #pprint.pprint(path_node,width=300)
     #print(path_node)
     #print(witness_node)
@@ -536,8 +536,8 @@ def merge_path_proofs(witnesses):
   root = None
   idx = 0
   for addy in witnesses:
-    print()
-    print(idx)
+    #print()
+    #print(idx)
     idx+=1
     if root==None:
       root = witnesses[addy]
@@ -556,7 +556,7 @@ def merge_path_proofs(witnesses):
   return root
 
 def parse_geth_proof_path(geth_path_proof,address_or_key):
-  print("parse_geth_proof_path(",geth_path_proof,address_or_key,")")
+  #print("parse_geth_proof_path(",geth_path_proof,address_or_key,")")
   prev_node = None
   root_node = None
   prev_child_idx = None
@@ -565,13 +565,13 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
   if geth_path_proof == []:
     node = []
   for i in range(len(geth_path_proof)):
-    print()
-    print(i)
+    #print()
+    #print(i)
     nodeRLP = geth_path_proof[i]
     nodeRLPhex = nodeRLP[2:]
     nodeRLPbytes = bytes.fromhex(nodeRLPhex)
     nodehash = keccak256(nodeRLPbytes)
-    print("nodehash",nodehash.hex())
+    #print("nodehash",nodehash.hex())
     nodedecoded = RLP_inv(nodeRLPbytes)
 
     if len(nodedecoded)==17: # branch
@@ -582,8 +582,8 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
       #print("nodedecoded",nodedecoded)
       #print("nodehash",nodehash.hex())
       for i in range(16):
-        print(i,nodedecoded[i])
-        print(i,nodedecoded[i].hex())
+        #print(i,nodedecoded[i])
+        #print(i,nodedecoded[i].hex())
         if nodedecoded[i]:
           node.append(["hash",nodedecoded[i].hex()])
         else:
@@ -651,8 +651,8 @@ def parse_geth_dump_into_witness(dump):
   # For each geth accountProof, create witness path, then merge these paths. Similarly for each geth storageProof.
   account_witness_roots = {}
   for address in dump:
-    print()
-    print("parse_geth_dump_into_witness address",address)
+    #print()
+    #print("parse_geth_dump_into_witness address",address)
     # each account in dump looks like:
     #   'balance': '0x1', 'nonce': 1, 'code':'0x...', 'storage': {'0x<key>':'0x<val>', ...}, 'proof': {'address': '0x<address>', 'accountProof': ['0x<blah>','0x<blah>',...], 'balance':'0x<blah>', 'codeHash':'0x<blah>', 'nonce': '0x<blah>', 'storageHash':'0x<blah>', 'storageProof': [{'key':'0x<blah>', 'value':'0x<blah>', 'proof':['0x<blah>','0x<blah>',...]}, {'key': ...}] }
     # or
@@ -723,7 +723,7 @@ if __name__ == "__main__":
   START_BLOCK = int(sys.argv[1])
 
   for i in range(START_BLOCK, START_BLOCK+1):
-    print("doing block {}...".format(i))
+    #print("doing block {}...".format(i))
     witness = getWitnessForBlock(i)
     if verbose:
       with open(str(i)+'_dump.json', 'w') as fp:
@@ -733,5 +733,5 @@ if __name__ == "__main__":
     witness_root = parse_geth_dump_into_witness(witness)
     #pprint.pprint(witness_root,width=300)
     with open(str(i)+'_witness.json', 'w') as fp:
-      fp.write(json.dumps(parsed, indent=2))
+      fp.write(json.dumps(witness_root, indent=2))
       fp.close()
