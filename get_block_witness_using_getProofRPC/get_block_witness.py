@@ -215,6 +215,7 @@ def getWitnessForBlock(blocknum):
       #print("\ntrace for txhash",txhash,"\n",accounts_touched)
     except:
       print("ERROR parsing debug_traceTransaction response!", sys.exc_info()[0])
+      print("param txhash:",txhash)
       print(response.text)
       sys.exit("ERROR parsing debug_traceTransaction response. stopping.")
     
@@ -462,16 +463,75 @@ def HP_inv(bytes_):
     nibbles += bytes([b]).hex()
   return nibbles, t
 
+"""
 
+In block 10389730, the prestate for account 0x8a91c9a16cd62693649d80afa85a09dbbdcb8508 storage location 0x611b1497668bd572905cf80563a332e3f35eabc62d7194de0ffb000459b4c6d0 has geth proof which includes a node encoded as RLP: f84f80a01de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b8080de9c31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d03808080808080808080808080.
+
+curl --header "Content-Type: application/json" -X POST --data '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x8a91c9a16cd62693649d80afa85a09dbbdcb8508",["0x611b1497668bd572905cf80563a332e3f35eabc62d7194de0ffb000459b4c6d0"],"0x9e88e1"],"id":1}'  http://localhost:8545
+
+After decoding this RLP, it resembles a branch node, but the fifth child is strange.
+
+f8 - list with length of lenth is 1 byte
+ 4f - bytelength of list is 79
+  80
+  a0
+    1de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b
+  80
+  80
+  de - list of bytelength 30
+   9c - bytes of length 28
+    31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d
+   03
+  80
+  80
+  80808080808080808080.
+
+
+f8 - list and length of length is 1
+ 4f - list has bytelength 79
+  80 - empty
+  a0 - length 32
+   1de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b
+  80
+  80
+  de - list with bytelength 30
+   9c - bytes of length 28
+    31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d
+   03
+  80
+  80
+  80
+  808080808080808080
+
+f84f
+ 80
+ a0 1de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b
+ 80
+ 80
+ de 9c31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d 03
+ 80
+ 8080808080808080808080
+
+
+node just before the branch it is in
+e4 - list of bytelength 32
+ 82 - bytearray of bytelength 2
+  00de - hex prefix of 2 nibble extension
+ a0 - bytearray of bytelength 32
+  36f97d0f0bba9aa6ed26d26b52b2d34687141307ef9df664b29fd66109fb4f91
+"""
 
 
 ##################################################
 # functions to convert geth proofs to nested nodes
 
+
 def merge_path_witness_to_witness(path_node, witness_node):
   if verbose: print("merge_path_witness_to_witness",path_node,witness_node)
 
   if witness_node[0]=="branch": # branch node
+    if path_node[0]=="hash":
+      return
     if path_node[0]!="branch":
       print("ERROR BRANCH NODE!!!!!!!!!")
       print("path_node",path_node)
@@ -490,6 +550,8 @@ def merge_path_witness_to_witness(path_node, witness_node):
         witness_node[idx] = path_node[idx]
 
   elif witness_node[0]=="extension":
+    if path_node[0]=="hash":
+      return
     if path_node[0]!="extension":
       print("ERROR EXTENSION NODE!!!!!!!!!")
       sys.exit(1)
@@ -545,8 +607,6 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
       for i in range(16):
         if nodedecoded[i]:
           if type(nodedecoded[i])==list:
-            #print("nodedecoded",nodedecoded)
-            #print("nodedecoded[",i,"]",nodedecoded[i])
             node.append(["hash",RLP(nodedecoded[i]).hex()])
           else:
             node.append(["hash",nodedecoded[i].hex()])
@@ -581,6 +641,13 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
 
   return root_node, node
 
+"""
+an extension node in 10377970.json
+e2 - list of bytelength 34
+ 1a - first item is byte 1a
+ a0 - second item is bytes of bytelength 32
+   2bd7a288088104932e9cea940aa02816a21267cfaa94ddd07c928a85d20381de
+"""
 
 
 # this function 
@@ -669,16 +736,17 @@ if __name__ == "__main__":
   #START_BLOCK = 7021700
   START_BLOCK = int(sys.argv[1])
 
-  for i in range(START_BLOCK, START_BLOCK+10):
-    print("block",i)
+  for i in range(START_BLOCK, START_BLOCK+1):
+    print("processing block",i)
     witness = getWitnessForBlock(i)
-    if verbose:
+    if 0: # might be useful to dump the getProof data
       with open(str(i)+'_dump.json', 'w') as fp:
-        fp = open(str(i)+".dat","w")
-        fp.write(str(witness))
+        fp.write(json.dumps(witness))
         fp.close()
+    # convert getProof dump to our desired format
     witness_root = parse_geth_dump_into_witness(witness)
     #pprint.pprint(witness_root,width=300)
+    # write output
     with open(str(i)+'_witness.json', 'w') as fp:
       fp.write(json.dumps(witness_root, indent=2))
       fp.close()
