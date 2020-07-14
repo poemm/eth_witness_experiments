@@ -21,7 +21,7 @@ debug = 0
 ##################################################################################
 ##################################################################################
 
-def getWitnessForBlock(blocknum):
+def getWitnessDataForBlock(blocknum):
   # note: don't know about completeness, maybe there is something missing (eg BLOCKHASH must be handled somehow)
   # note: don't know about witness minimalness, since some merkle paths not needed (eg tx creates leaf then deletes leaf)
 
@@ -290,7 +290,7 @@ def getWitnessForBlock(blocknum):
     witness_data_by_address[address]['proof'] = proof
 
 
-  return witness_data_by_address
+  return witness_data_by_address, uncleheaders, block
 
 
 
@@ -463,63 +463,6 @@ def HP_inv(bytes_):
     nibbles += bytes([b]).hex()
   return nibbles, t
 
-"""
-
-In block 10389730, the prestate for account 0x8a91c9a16cd62693649d80afa85a09dbbdcb8508 storage location 0x611b1497668bd572905cf80563a332e3f35eabc62d7194de0ffb000459b4c6d0 has geth proof which includes a node encoded as RLP: f84f80a01de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b8080de9c31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d03808080808080808080808080.
-
-curl --header "Content-Type: application/json" -X POST --data '{"jsonrpc":"2.0","method":"eth_getProof","params":["0x8a91c9a16cd62693649d80afa85a09dbbdcb8508",["0x611b1497668bd572905cf80563a332e3f35eabc62d7194de0ffb000459b4c6d0"],"0x9e88e1"],"id":1}'  http://localhost:8545
-
-After decoding this RLP, it resembles a branch node, but the fifth child is strange.
-
-f8 - list with length of lenth is 1 byte
- 4f - bytelength of list is 79
-  80
-  a0
-    1de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b
-  80
-  80
-  de - list of bytelength 30
-   9c - bytes of length 28
-    31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d
-   03
-  80
-  80
-  80808080808080808080.
-
-
-f8 - list and length of length is 1
- 4f - list has bytelength 79
-  80 - empty
-  a0 - length 32
-   1de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b
-  80
-  80
-  de - list with bytelength 30
-   9c - bytes of length 28
-    31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d
-   03
-  80
-  80
-  80
-  808080808080808080
-
-f84f
- 80
- a0 1de39cd769836b28d87550d4ac3b8d339a46c7e802735ace42605a6acefe0e6b
- 80
- 80
- de 9c31a86aab069d130e7f183a8dfb818845b43273f826fa01a2d253cb1d 03
- 80
- 8080808080808080808080
-
-
-node just before the branch it is in
-e4 - list of bytelength 32
- 82 - bytearray of bytelength 2
-  00de - hex prefix of 2 nibble extension
- a0 - bytearray of bytelength 32
-  36f97d0f0bba9aa6ed26d26b52b2d34687141307ef9df664b29fd66109fb4f91
-"""
 
 
 ##################################################
@@ -609,26 +552,26 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
           if type(nodedecoded[i])==list:
             node.append(["hash",RLP(nodedecoded[i]).hex()])
           else:
-            node.append(["hash",nodedecoded[i].hex()])
+            node.append(["hash","0x"+nodedecoded[i].hex()])
         else:
           node.append("")
     elif len(nodedecoded)==2: # extension or leaf
       nibbles,flag = HP_inv(nodedecoded[0])
       if not flag: # extension
         childhash = nodedecoded[1]
-        node = ["extension",(len(nibbles),nibbles),["hash",childhash.hex()]]
+        node = ["extension",(len(nibbles),"0x"+nibbles),["hash",childhash.hex()]]
       else: # leaf
         leafdata = RLP_inv(nodedecoded[1])
         if type(leafdata)==bytes:
           leafdata = [leafdata]
-        node = ["leaf",address_or_key] + leafdata
+        node = ["leaf","0x"+address_or_key] + leafdata
 
     if root_node == None:
       root_node = node
     else: # nest this node inside parent prev_node
       if prev_node[0]=="branch": # parent is branch
         for i in range(len(prev_node)):
-          if prev_node[i] and prev_node[i][1]==nodehash.hex():
+          if prev_node[i] and prev_node[i][1]=="0x"+nodehash.hex():
             prev_node[i] = node
             break
         prev_child_idx = i
@@ -641,13 +584,6 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
 
   return root_node, node
 
-"""
-an extension node in 10377970.json
-e2 - list of bytelength 34
- 1a - first item is byte 1a
- a0 - second item is bytes of bytelength 32
-   2bd7a288088104932e9cea940aa02816a21267cfaa94ddd07c928a85d20381de
-"""
 
 
 # this function 
@@ -689,6 +625,7 @@ def parse_geth_dump_into_witness(dump):
   for address in dump:
     if verbose: print("parse_geth_dump_into_witness address",address)
     # parse merkle path for this address
+    #print("\n\n","OK",dump[address])
     root_node, bottom_node = parse_geth_proof_path(dump[address]['proof']['accountProof'],address)
     account_witness_path_root_nodes[address] = root_node
     # parse storage proofs, then will merge them
@@ -698,7 +635,7 @@ def parse_geth_dump_into_witness(dump):
         storage_root_node, storage_bottom_node = parse_geth_proof_path(storageProof['proof'],storageProof['key'])
         storage_leaf_witness_roots[storageProof['key']] = storage_root_node
         if storage_bottom_node and storage_bottom_node[0]=="leaf":
-          storage_bottom_node[2] = storage_bottom_node[2].hex()
+          storage_bottom_node[2] = "0x"+storage_bottom_node[2].hex()
       if dump[address]['proof']['codeHash'] == "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470" and dump[address]['proof']['storageHash'] == "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421": # externally-owned account, or zombie
         account = [dump[address]['proof']['nonce'],
                    dump[address]['proof']['balance']
@@ -712,7 +649,7 @@ def parse_geth_dump_into_witness(dump):
         if 'code' in dump[address]:
           code = dump[address]['code']
         else:
-          code = dump[address]['proof']['codeHash'] # todo: need codelen
+          code = ["codehash",dump[address]['proof']['codeHash']]
         account = [dump[address]['proof']['nonce'],
                    dump[address]['proof']['balance'],
                    code,
@@ -729,6 +666,30 @@ def parse_geth_dump_into_witness(dump):
 
 
 
+# get recent 256 blocks, needed to statlessly handle BLOCKHASH and uncle rewards
+
+def get_256_block_headers(blocknum):
+  blocks = []
+  for i in range(blocknum-256,blocknum):
+    payload = {
+      'method': 'eth_getBlockByNumber',
+      'params': [hex(i), False],
+      'id': 1
+    }
+    response = requests.post("http://localhost:8545", data=json.dumps(payload), headers=head)
+    #print(response.text)
+    try:
+      block = response.json()['result']
+      del block["transactions"]
+      blocks.append(block)
+    except:
+      print("ERROR with eth_getBlockByNumber, response:",response.json())
+      print(response.text)
+      sys.exit("ERROR parsing eth_getCode, stopping.")
+  return blocks
+
+
+
 
 
 if __name__ == "__main__":
@@ -738,15 +699,18 @@ if __name__ == "__main__":
 
   for i in range(START_BLOCK, START_BLOCK+1):
     print("processing block",i)
-    witness = getWitnessForBlock(i)
+    witnessData, uncle_headers, block = getWitnessDataForBlock(i)
     if 0: # might be useful to dump the getProof data
       with open(str(i)+'_dump.json', 'w') as fp:
-        fp.write(json.dumps(witness))
+        fp.write(json.dumps(witnessData))
         fp.close()
     # convert getProof dump to our desired format
-    witness_root = parse_geth_dump_into_witness(witness)
+    witness_root = parse_geth_dump_into_witness(witnessData)
     #pprint.pprint(witness_root,width=300)
+    # get 256 blocks before this block, useful for BLOCKHASH opcode and to process uncles
+    blocks256 = get_256_block_headers(i)
     # write output
-    with open(str(i)+'_witness.json', 'w') as fp:
-      fp.write(json.dumps(witness_root, indent=2))
+    with open(str(i)+'_witnessd.json', 'w') as fp:
+      full_witness = {"block":block, "uncleHeaders":uncle_headers, "witness":witness_root, "blocks256":blocks256}
+      fp.write(json.dumps(full_witness, indent=1))
       fp.close()
