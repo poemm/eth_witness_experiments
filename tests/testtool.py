@@ -255,21 +255,23 @@ def test(filename):
       except AssertionError:
         if verbose: print("There was an AssertionError, as desired")
       except:
-        print("ERROR with test case",test_name)
+        print("ERROR with test case:",test_name)
         passed = 0
     else:
       # test 1: parse
-      try:
-        idx,trees = test_parse(witness_bytes, test_name)
-      except:
-        print("ERROR with test case",test_name)
-        passed = 0
-        continue
+      idx,trees = test_parse(witness_bytes, test_name)
+      #try:
+      #  idx,trees = test_parse(witness_bytes, test_name)
+      #except Exception as e:
+      #  print("ERROR caught exception with test case:",test_name)
+      #  print(e)
+      #  passed = 0
+      #  continue
       if trees==None:
-        print("ERROR with test case",test_name)
+        print("ERROR parsed None with test case:",test_name)
         passed = 0
         continue
-      # test w: check if match witness merkle hash
+      # test 2: check if match witness merkle hash
       for idx,tree in enumerate(trees):
         computed_hash = ethereum_spec.merkleize(tree,0,0)
         expected_hash = root_hashes[idx][2:]

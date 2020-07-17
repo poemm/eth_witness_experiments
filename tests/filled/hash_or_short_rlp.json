@@ -1,0 +1,8 @@
+[
+ {
+  "test name": "simplest case of the special case where we include an rlp encoding in place of a hash",
+  "test types": "basic, dummy values, rlp, leaf, extension, contract account, storage leaf",
+  "witness": "0x010002010000000000000000000000000000000000000000000000000109000000000003001f00000000000000000000000000000000000000000000000000000000000000",
+  "root hashes":["0xff99189f331ff900f18c0c9d6a83e50d265efe5a57dc354da060a79e712f8d4d"]
+ }
+]
