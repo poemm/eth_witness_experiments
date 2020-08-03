@@ -25,7 +25,6 @@ def getWitnessDataForBlock(blocknum):
   # note: don't know about completeness, maybe there is something missing (eg BLOCKHASH must be handled somehow)
   # note: don't know about witness minimalness, since some merkle paths not needed (eg tx creates leaf then deletes leaf)
 
-
   # STEP 1: eth_getBlockByNumber to get block
   payload = {
     'method': 'eth_getBlockByNumber',
@@ -58,6 +57,7 @@ def getWitnessDataForBlock(blocknum):
   txs_to_trace = []
   some_addresses = set()
 
+  #print("block['transactions']",block['transactions'])
   for idx, tx in enumerate(block['transactions']):
     if verbose>1: print("transaction",idx,":",tx)
     some_addresses.add(tx['from'])
@@ -301,11 +301,11 @@ def getWitnessDataForBlock(blocknum):
 
 
 
-############################################################################################
-############################################################################################
-## The following code is to convert the dumped block witness data into a more useful form ##
-############################################################################################
-############################################################################################
+#############################################################################################
+#############################################################################################
+## The following code is to convert the dumped block witness data into a more useful form. ##
+#############################################################################################
+#############################################################################################
 
 
 
@@ -483,14 +483,17 @@ def merge_path_witness_to_witness(path_node, witness_node):
     # get path branch's child position, if any
     idx = -1
     for i,c in enumerate(path_node):
-      if c and c[0] in {"branch","extension","leaf"}:
+      if c and c[0] in {"branch","extension","leaf","leaf_for_exclusion_proof"}:
         idx = i
         break
     if idx != -1:
       if witness_node[idx] and witness_node[idx][0]!="hash":
         merge_path_witness_to_witness(path_node[idx], witness_node[idx]) # recurse
       else:
-        witness_node[idx] = path_node[idx]
+        if witness_node[idx][0]=="leaf": 
+          pass  # nothing, already have the leaf, can't get anything better
+        else:   # eg "leaf_for_exclusion_proof", then just replace it
+          witness_node[idx] = path_node[idx]
 
   elif witness_node[0]=="extension":
     if path_node[0]=="hash":
@@ -504,14 +507,14 @@ def merge_path_witness_to_witness(path_node, witness_node):
       witness_node[2] = path_node[2]
 
   elif witness_node[0]=="leaf":
-    if path_node[0]!="leaf":
-      print("ERROR LEAF NODE!!!!!!!!!")
-      sys.exit(1)
-    # collision with an existing leaf, might, happen when a proof-of-exclusion pulled this leaf in
+    # collision with an existing leaf, might, happen when a proof-of-exclusion
     # replace it with this updated one, since contract leaf might have to add code or storage, todo: maybe should merge leaves
     if len(witness_node)>2:
       witness_node[3:] = path_node[3:]
 
+  elif witness_node[0]=="leaf_for_exclusion_proof":
+    if path_node[0]=="leaf":
+      witness_node[:] = path_node[:]
 
 def merge_path_proofs(witnesses):
   if verbose: print("merge_path_proofs(",witnesses,")")
@@ -534,7 +537,6 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
   if verbose: print("parse_geth_proof_path(",geth_path_proof,address_or_key,")")
   prev_node = None
   root_node = None
-  prev_child_idx = None
   if geth_path_proof == []:
     node = []
   for i in range(len(geth_path_proof)):
@@ -563,22 +565,25 @@ def parse_geth_proof_path(geth_path_proof,address_or_key):
       else: # leaf
         leafdata = RLP_inv(nodedecoded[1])
         if type(leafdata)==bytes:
-          leafdata = [leafdata]
-        node = ["leaf","0x"+address_or_key] + leafdata
+          leafdata = [leafdata.hex()]
+        else:
+          leafdata = [ld.hex() for ld in leafdata]
+        path_to_leaf = keccak256(bytes.fromhex(address_or_key[2:])).hex()
+        if nibbles != path_to_leaf[-1*len(nibbles):]:
+          node = ["leaf_for_exclusion_proof","0x"+nibbles] + leafdata
+        else:
+          node = ["leaf",address_or_key] + leafdata
 
     if root_node == None:
       root_node = node
-    else: # nest this node inside parent prev_node
-      if prev_node[0]=="branch": # parent is branch
-        for i in range(len(prev_node)):
-          if prev_node[i] and prev_node[i][1]=="0x"+nodehash.hex():
-            prev_node[i] = node
+    else:   # nest this node inside parent prev_node
+      if prev_node[0]=="branch":    # parent is branch
+        for j in range(len(prev_node)):
+          if prev_node[j] and prev_node[j][1]=="0x"+nodehash.hex():
+            prev_node[j] = node
             break
-        prev_child_idx = i
-
       else: # parent is extension
         prev_node[2] = node
-        prev_child_idx = 2
 
     prev_node = node
 
@@ -634,8 +639,8 @@ def parse_geth_dump_into_witness(dump):
       for storageProof in dump[address]['proof']['storageProof']:
         storage_root_node, storage_bottom_node = parse_geth_proof_path(storageProof['proof'],storageProof['key'])
         storage_leaf_witness_roots[storageProof['key']] = storage_root_node
-        if storage_bottom_node and storage_bottom_node[0]=="leaf":
-          storage_bottom_node[2] = "0x"+storage_bottom_node[2].hex()
+        #if storage_bottom_node and storage_bottom_node[0]=="leaf":
+        #  storage_bottom_node[2] = "0x"+storage_bottom_node[2].hex()
       if dump[address]['proof']['codeHash'] == "0xc5d2460186f7233c927e7db2dcc703c0e500b653ca82273b7bfad8045d85a470" and dump[address]['proof']['storageHash'] == "0x56e81f171bcc55a6ff8345e692c0f86e5b48e01b996cadc001622fb5e363b421": # externally-owned account, or zombie
         account = [dump[address]['proof']['nonce'],
                    dump[address]['proof']['balance']
@@ -710,7 +715,7 @@ if __name__ == "__main__":
     # get 256 blocks before this block, useful for BLOCKHASH opcode and to process uncles
     blocks256 = get_256_block_headers(i)
     # write output
-    with open(str(i)+'_witnessd.json', 'w') as fp:
+    with open(str(i)+'_witness.json', 'w') as fp:
       full_witness = {"block":block, "uncleHeaders":uncle_headers, "witness":witness_root, "blocks256":blocks256}
       fp.write(json.dumps(full_witness, indent=1))
       fp.close()

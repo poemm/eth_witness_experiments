@@ -29,6 +29,7 @@ The cusotm JSON format witness tree is built of nested lists. Each tree node is 
   - For an externally-owned account or contract account with empty code and storage, it has `0x<address>, <balance>, <nonce>` where `<balance>` and `<nonce>` are integers or `0x<hex string>`.
   - For a non-empty contract account, it has `0x<address>, <balance>, <nonce>, <code>, <storage>`, where `<code>` can be `0x<full bytecode>` or `["codehash",0x<code hash>]`, and where `<storage>` is itself a tree node.
   - A `"leaf"` node of a storage tree has two items, `<storage key>, <storage value>` where these are either integers or `0x<hex string>`.
+- A `"leaf_for_exclusion_proof"` is leaf data which is not used during block execution, but is needed to insert a new leafs created during block execution. The node includes `0x<prefix nibbles for the leaf>` followed by either `<nonce> <balance> <storage> <code>` or `<leaf's storage value>`.
 
 For example, the following witness for ethereum block #1.
 
